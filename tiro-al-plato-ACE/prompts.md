@@ -1,0 +1,341 @@
+# Prompts para el desarrollo del videojuego Tiro al plato
+
+## Assets
+
+### Prompt inicial para generar el fondo
+Agente: ChatGPT
+Prompt:
+
+![Boceto](./assets-prompts/campo-de-tiro.png)
+![Hyper-Sport-2](./assets-prompts/hyper-sport-2.jpg)
+
+Voy a realizar un video juego en el que jugaremos al tiro al plato. Crea una imagen en la que se vea una pista profunda de tiro al plato. Al fondo del campo de tiro habrá unas montañas. El campo de tiro tendrá dos rampas de lanzamiento de discos, una a la derecha y otra a la izquieda que apuntarán a izquierda y derecha respectivamente, ya que los discos que se lanzarán en horizontal, de derecha a izquierda y de izquierda a derecha.. En la parte de abajo de la imagen, tendremos un espacio en el que se colocará el jugador. En la parte de abajo a la derecha, tendremos un marcador de tiempo en el que se indicará lo que queda para terminar la ronda.  El estilo de la imagen debe ser similar al colorido de los juegos de los ochenta, aunque con calidad mejorada. No incluyas ningún elemento de los que aparecen en las imágenes que adjunto. Úsalas para tener una idea de lo que busco. No incluyas en la imagen los discos, ya que se generarán en el juego, ni la escopeta, ni al personaje. El marcador de tiempo tampoco debería de llevar ningún valor. La imagen la queremos para usarla de fondo y nosotros incluir los elementos móviles.
+
+Resultados:
+
+![Resultado 1](./assets-prompts/resultado-1.png)
+![Resultado 2](./assets-prompts/resultado-2.png)
+
+### Prompt para refinar un poco el fondo
+
+Agente: ChatGPT
+Prompt:
+
+Usando esta imagen como base, ¿puedes crear una versión algo menos retro? Que contenga los mismos elementos, la misma disposición, pero con un aspecto más actualizado y mejor definición
+
+Resultado:
+
+![Resultado final del fondo](./assets-prompts/resultado-fondo.png)
+
+### Prompt para generar el tirador
+
+Agente: ChatGPT
+
+Proceso:
+
+He intentado generar las imágenes para el personaje y no he llegado a conseguir nada que me llegase a gustar. Además, no he sabido proporcionar el prompt adecuado y no ha sabido interpretar lo que le pedía por lo que todos los diseños incluían fallos que no me han permitido incluir los assets.
+
+Al final, he ido a Nano Banana 2 con el siguiente prompt:
+
+Necesito crear unos sprites para un juego que estoy creando de tiro al plato. Fíjate en la imagen que adjunto para utilizar el mismo estilo visual. Sigue el esquema que adjunto para crear el personaje en sus distintas posiciones. Las posiciones son las siguientes:
+- Cuerpo y cabeza mirando norte-noreste y con la escopeta apuntando norte-noreste
+- Cuerpo y cabeza mirando norte y con la escopeta mirando al norte
+- Cuerpo y cabeza mirando norte-noroeste y con la escopeta mirando norte-noroeste
+- Cuerpo mirando al norte y cabeza mirando al norte-noreste. No debe aparecer la escopeta.
+- Cuerpo mirando al norte y cabeza mirando al norte-noroeste. No debe aparecer la escopeta.
+- Cuerpo y cabeza mirando al norte. Brazo derecho arriba con el puño cerrado
+- Cuerpo y cabeza mirando al norte. Brazo derecho a media altura con el puño cerrado
+
+Resultado:
+
+![Tirador](./assets-prompts/tirador.jpeg)
+
+## Definición del proyecto
+
+### Prompt inicial para generar una descripción básica de la funcionalidad
+
+Agente: Gemini Razonamiento
+
+Como Product Manager experto en desarrollo de videjuegos usando html y javascript
+
+Vamos a desarrollar un videjuego de tipo al plato.
+
+A Grandes rasgos, el juego constará de una pantalla inicial de bienvenida. En esa pantalla tendremos dos opciones, iniciar una nueva partida o ver las puntuaciones más altas.
+
+La pantalla de bienvenida consta de un fondo, el mismo fondo que se utilizará para el juego, y una popup en el centro en el que se mostrarán las opciones.
+
+Cuando el usuario pulse en ver las puntuaciones más altas, el popup central mostrará el listado de puntuaciones y nombres (tres letras por nombre) de las personas que realizaron esas puntuaciones. Debe aparece aquí un botón para volver atrás.
+
+Cuando el usuario pulse en iniciar el juego, el popup desaparecerá, se mostrará el fondo y se mostrará el personaje del jugador. Y aquí empezará la mecánica del juego, que definiremos en detalle más adelante. Al terminar el juego, si ha conseguido estar entre las 10 puntuaciones más altas, aparecerá un popup que le permitirá introducir sus iniciales. Este popup mostrará todas las puntuaciones, y estará listo para poner las letras en la línea correspondiente, al estilo de los juegos de arcade antiguos.
+
+Genera una descripción detallada del plan de implementación de este videojuego. Sugiere posibles frameworks que podríamos utilizar para su desarrollo, siempre que el uso de un framework javascript nos pueda ayudar a acelerar el desarrollo del juego y simplifique las siguientes fases.
+
+Resultado:
+
+¡Excelente concepto! Como tu Product Manager, me encanta la dirección que estás tomando. Los juegos "al plato" (estilo *skeet shooting* o *duck hunt*) son perfectos para la web porque dependen de una mecánica de entrada simple pero altamente adictiva.
+
+Para que esto sea un éxito y no se convierta en un "espagueti" de código, necesitamos una estructura sólida. Aquí tienes el plan de implementación detallado y las herramientas recomendadas.
+
+---
+
+#### 1. Stack Tecnológico y Frameworks
+
+Aunque podrías hacerlo con JavaScript "puro" (Vanilla) y la API de Canvas, para acelerar el desarrollo y garantizar la escalabilidad, mi recomendación profesional es:
+
+##### **Framework Principal: Phaser 3**
+Es el estándar de oro para juegos 2D en HTML5.
+* **Por qué:** Gestiona automáticamente el bucle de juego (*game loop*), la carga de activos, las físicas y, lo más importante, tiene un sistema de escenas excelente para separar el menú del juego.
+
+##### **Herramientas de Apoyo**
+| Herramienta | Función |
+| :--- | :--- |
+| **Vite** | Para un entorno de desarrollo ultrarrápido y empaquetado del código. |
+| **LocalStorage API** | Para guardar las puntuaciones localmente sin necesidad de un servidor (inicialmente). |
+| **WebAudio API** | (Incluida en Phaser) para gestionar el sonido de los disparos y platos rotos. |
+
+---
+
+#### 2. Plan de Implementación por Fases
+
+##### Fase 1: Arquitectura de Escenas
+Dividiremos el juego en **Scenes** independientes. Esto facilita mucho el mantenimiento:
+1.  **Boot/Preload:** Carga de imágenes, sprites del personaje y sonidos.
+2.  **MainMenu:** Pantalla de bienvenida con el fondo y el sistema de popups.
+3.  **HighScores:** Visualización de la tabla de líderes.
+4.  **GameScene:** El núcleo del juego (disparos, platos, tiempo).
+5.  **ScoreEntry:** El modo "arcade" para meter las iniciales.
+
+##### Fase 2: Interfaz de Usuario (UI) y Sistema de Popups
+En lugar de crear elementos HTML flotantes (que pueden dar problemas de enfoque), dibujaremos el popup directamente en el Canvas de Phaser para que el escalado sea perfecto.
+* **El Fondo:** Un `Sprite` estático que persiste o se replica en todas las escenas.
+* **Contenedores:** Usaremos `Phaser.GameObjects.Container` para agrupar el fondo del popup, los botones y el texto, permitiendo animar su aparición con un efecto *tween* (suavizado).
+
+##### Fase 3: Mecánica de Juego (Gameplay)
+Aquí es donde definiremos la física de los platos.
+* **Lógica de Trayectoria:** Los platos seguirán una trayectoria parabólica. La ecuación de posición vertical será:
+    $$y(t) = y_0 + v_{y0}t - \frac{1}{2}gt^2$$
+    Donde $g$ es la gravedad simulada.
+* **Detección de Acierto:** Usaremos punteros (ratón o táctil) para detectar colisiones con los *hitboxes* circulares de los platos.
+
+##### Fase 4: El Sistema de Puntuación Arcade
+Este es el "toque maestro" de tu propuesta.
+* **Persistencia:** Crearemos un array de objetos `[{name: 'AAA', score: 1000}, ...]` guardado en un string JSON dentro del `localStorage`.
+* **Entrada de Iniciales:** No usaremos el teclado estándar. Implementaremos un selector cíclico (A-Z) donde el usuario se mueve con flechas o botones en pantalla, replicando la sensación de las máquinas de los 80.
+
+---
+
+#### 3. Desglose del "High Score Entry" (Estilo Retro)
+
+Para lograr esa estética de arcade antiguo, el flujo será:
+1.  **Validación:** Al morir, el script comprueba si `currentScore > scores[9].score`.
+2.  **Interfaz:** Se resalta la línea de la nueva puntuación con guiones bajos parpadeantes `_ _ _`.
+3.  **Control:** * Flecha Arriba/Abajo: Cambia el carácter actual (A -> B -> C...).
+    * Botón "Siguiente/Aceptar": Salta al siguiente espacio o confirma la entrada.
+
+---
+
+#### 4. Sugerencia de PM para el "MVP" (Producto Mínimo Viable)
+
+Para la primera versión, sugiero:
+* **Feedback Visual:** Un pequeño "destello" o efecto de partículas cuando el plato se rompe. Sin eso, el juego se siente vacío.
+* **Dificultad Progresiva:** A medida que el jugador acierta, los platos deben salir con un ángulo más bajo o a mayor velocidad inicial.
+
+**¿Quieres que profundicemos en el código de la lógica de rotación de los platos o prefieres que diseñemos primero la estructura de objetos para la tabla de puntuaciones?**
+
+### Generación del product roadmap
+
+Actúa como Product Owner senior, experto en desarrollo de videojuegos y metodologías ágiles.
+Utiliza la descripción del juego anterior para proponer un product roadmap de alto nivel. Vamos a ir inicialmente a crear las épicas necesarias para podor generar el MVP propuesto, con el feedback visual y la dificultad progresiva.
+
+Resultado:
+
+¡Excelente! Como **Senior Product Owner**, mi objetivo es asegurar que el equipo construya el producto correcto, maximizando el valor en cada entrega. Para este juego de tiro al plato, vamos a estructurar el trabajo para pasar de un "lienzo en blanco" a una experiencia adictiva con "jugo" (feedback visual) en el menor tiempo posible.
+
+Aquí tienes el **Product Roadmap** y el desglose de **Épicas** para el MVP.
+
+---
+
+#### 1. Product Roadmap de Alto Nivel (MVP Focus)
+
+Dividiremos el desarrollo en **3 fases críticas** dentro de un horizonte temporal ágil (ej. 6 sprints de una semana):
+
+* **Fase 1: Cimientos y Core Loop (Mecánica Base):** El jugador puede disparar y los platos se rompen. Sin adornos, solo funcionalidad pura.
+* **Fase 2: Meta-game y Persistencia:** Pantallas de inicio, sistema de puntuación y la tabla de clasificación local.
+* **Fase 3: "Juice" y Balance:** Feedback visual (partículas), sonidos y la curva de dificultad progresiva que mencionamos.
+
+---
+
+#### 2. Definición de Épicas para el MVP
+
+He definido estas 5 épicas para cubrir los requisitos técnicos y de experiencia de usuario:
+
+##### Épica 1: Arquitectura del Motor y Assets (Foundation)
+* **Objetivo:** Configurar el entorno de desarrollo y cargar todos los recursos necesarios.
+* **Historias de Usuario clave:**
+    * Configuración del *Boilerplate* con Phaser 3 y Vite.
+    * Implementación del sistema de gestión de Escenas (Boot, Menú, Juego, Puntuaciones).
+    * Carga de *Spritesheets* (personaje, platos, fondo) y assets de audio.
+
+##### Épica 2: El Core Gameplay (The Shooting Loop)
+* **Objetivo:** Conseguir que la mecánica principal sea funcional y precisa.
+* **Historias de Usuario clave:**
+    * Implementación del sistema de disparo mediante clic/tap con detección de colisión circular.
+    * Lógica de lanzamiento de platos (Trayectoria parabólica mediante física 2D).
+    * Controlador del personaje (animación de disparo y posición estática).
+    * Sistema de gestión de "Vidas" (platos perdidos) y fin de partida.
+
+##### Épica 3: Interfaz de Usuario y Navegación (Menus & UI)
+* **Objetivo:** Crear el flujo de navegación entre la pantalla de bienvenida y el juego.
+* **Historias de Usuario clave:**
+    * Creación del Popup central dinámico para el Menú Principal.
+    * Integración del fondo persistente entre escenas.
+    * Implementación de la lógica de "Volver al Menú" desde cualquier pantalla.
+
+##### Épica 4: Sistema de Puntuación "Old School" (Data & Entry)
+* **Objetivo:** Gestionar la persistencia de datos y la entrada de iniciales estilo arcade.
+* **Historias de Usuario clave:**
+    * Desarrollo de la lógica de persistencia en `LocalStorage`.
+    * Creación de la pantalla de visualización de los Top 10 mejores puntajes.
+    * **Feature Estrella:** Implementación del componente de entrada de iniciales (3 letras) con scroll cíclico (A-Z).
+
+##### Épica 5: Experiencia Sensorial y Pulido (The Juice & Balance)
+* **Objetivo:** Hacer que el juego pase de ser funcional a ser "divertido".
+* **Historias de Usuario clave:**
+    * **Feedback Visual:** Sistema de partículas para la explosión de platos y "flash" de pantalla al disparar.
+    * **Dificultad Progresiva:** Algoritmo que reduce el tiempo entre lanzamientos y aumenta la velocidad de los platos según la puntuación.
+    * **Feedback Auditivo:** Efectos de sonido para acierto, fallo y música de fondo.
+
+---
+
+#### 3. Priorización del Backlog (Matriz de Valor vs. Esfuerzo)
+
+Para el MVP, priorizaremos de la siguiente manera:
+
+1.  **Must Have:** Épica 1, Épica 2 y Épica 4 (La base mecánica y el sistema arcade).
+2.  **Should Have:** Épica 3 (UI limpia) y Épica 5 (Feedback visual y dificultad).
+3.  **Could Have (Post-MVP):** Power-ups, diferentes tipos de platos o multijugador local.
+
+---
+
+#### 4. Sugerencia de PM: El "Diferenciador"
+Para que este juego destaque, aunque sea un MVP, te sugiero añadir un **"Combo Multiplier"**. Si el jugador rompe 3 platos seguidos sin fallar, la puntuación se duplica. Esto añade una capa estratégica a la dificultad progresiva que estamos planeando.
+
+**Como Product Owner, mi siguiente paso sería redactar los Criterios de Aceptación para la Épica 4 (el sistema de puntuación arcade). ¿Te gustaría que los definamos o prefieres empezar con la arquitectura técnica de la Épica 1?**
+
+### Definición de las historias de la primera épica
+
+Vamos a empezar a definir las User Stories de la primera épica.
+Actúa como Product Owner senior con experiencia en metodologías ágiles y experto en desarrollo de videojuegos. Tienes, además, el conocimiento de un experto desarrollador senior de videojuegos.
+
+A partir de la descripción de la primera épica, genera las User Stories necesarias para desarrollar esa funcionalidad, que cumplan los criterios INVEST. Para cada una incluye:
+- Título descriptivo
+- Historia en formato "Como [rol], quiero [acción], para [beneficio]"
+- 3 criterios de aceptación en formato BDD (Dado que/Cuando/Entonces)
+- Estimación de complejidad (S/M/L)
+- Evaluación breve contra INVEST
+
+Después de generar las historias, sugiere un orden de priorización y justifica tu decisión.
+Ten en cuenta que estamos generando desde cero el proyecto, por lo que serán necesarias, posiblemente, historias para la configuración del entorno de desarrollo.
+
+Resultado:
+
+Como Senior Product Owner y Lead Developer, entiendo que la **Épica 1 (Foundation)** es el "esqueleto" que sostendrá toda la lógica posterior. Si los cimientos son débiles, el desarrollo se ralentizará en las fases de pulido.
+
+Aquí tienes el desglose de User Stories para esta primera fase, diseñadas para ser ejecutables y técnicamente sólidas.
+
+---
+
+#### Épica 1: Arquitectura del Motor y Assets
+
+##### US1.1: Configuración del entorno de desarrollo (Scaffolding)
+* **Historia:** Como **desarrollador**, quiero un **entorno de desarrollo basado en Vite y Phaser 3**, para poder **escribir código con hot-reload y empaquetar el juego eficientemente**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Inicio del servidor local.
+        * **Dado que** he instalado las dependencias con `npm install`.
+        * **Cuando** ejecuto el comando `npm run dev`.
+        * **Entonces** el servidor se inicia y el juego es accesible en el navegador en menos de 2 segundos.
+    * **Escenario 2:** Inicialización de Phaser.
+        * **Dado que** el juego carga en el navegador.
+        * **Cuando** inspecciono la consola.
+        * **Entonces** debe aparecer el banner de Phaser 3 confirmando que el contexto de Canvas/WebGL se ha creado correctamente.
+    * **Escenario 3:** Estructura de carpetas.
+        * **Dado que** abro el proyecto.
+        * **Cuando** reviso el directorio `src/`.
+        * **Entonces** deben existir carpetas separadas para `scenes/`, `assets/` y `prefabs/`.
+* **Estimación:** **S** (Pequeña).
+* **Evaluación INVEST:** Cumple. Es **I**ndependiente (es el inicio), **V**aliosa (habilita al equipo) y **T**esteable (el servidor corre o no).
+
+---
+
+##### US1.2: Implementación del Sistema de Escenas (Scene Manager)
+* **Historia:** Como **desarrollador**, quiero un **sistema de gestión de escenas**, para **separar lógicamente el flujo del juego (Carga -> Menú -> Partida -> Puntuaciones)**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Flujo de arranque.
+        * **Dado que** inicio el juego.
+        * **Cuando** termina la escena de `Boot`.
+        * **Entonces** el motor debe hacer la transición automática a la escena de `MainMenu`.
+    * **Escenario 2:** Registro de escenas.
+        * **Dado que** el archivo `main.js` configura el juego.
+        * **Cuando** se instancia la clase `Phaser.Game`.
+        * **Entonces** deben estar registradas al menos las clases `Boot`, `Preloader`, `MainMenu` y `GameScene`.
+    * **Escenario 3:** Persistencia del estado.
+        * **Dado que** cambio de la escena `GameScene` a `MainMenu`.
+        * **Cuando** vuelvo a entrar en `GameScene`.
+        * **Entonces** la escena debe reiniciarse limpiamente sin fugas de memoria de la sesión anterior.
+* **Estimación:** **M** (Media).
+* **Evaluación INVEST:** Cumple. Es **E**stimable y **S**mall (pequeña) al enfocarse solo en la navegación, no en el contenido.
+
+---
+
+##### US1.3: Sistema de Precarga de Assets (Asset Loader)
+* **Historia:** Como **jugador**, quiero ver una **pantalla de carga**, para **saber que el juego se está iniciando y evitar ver elementos visuales "parpadeando" al aparecer**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Feedback visual de carga.
+        * **Dado que** estoy en la escena de `Preloader`.
+        * **Cuando** los assets se están descargando.
+        * **Entonces** se debe mostrar una barra de progreso que se llene proporcionalmente al % de carga.
+    * **Escenario 2:** Carga de recursos críticos.
+        * **Dado que** el método `preload()` se ejecuta.
+        * **Cuando** termina la fase de carga.
+        * **Entonces** deben estar disponibles en la caché de Phaser el fondo, el sprite del personaje y el sprite del plato.
+    * **Escenario 3:** Gestión de errores.
+        * **Dado que** un asset falla al cargar (404).
+        * **Cuando** termina el intento de carga.
+        * **Entonces** el juego debe loguear un error en consola pero permitir la transición al menú para evitar un bloqueo total.
+* **Estimación:** **S** (Pequeña).
+* **Evaluación INVEST:** Cumple. Es **V**aliosa para la UX y **N**egociable (podemos empezar con una barra simple).
+
+---
+
+##### US1.4: Layout Base y Fondo Persistente
+* **Historia:** Como **Product Owner**, quiero que el **fondo del juego esté presente en todas las pantallas**, para **mantener la coherencia visual desde el primer momento**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Renderizado del fondo.
+        * **Dado que** entro en la escena `MainMenu` o `GameScene`.
+        * **Cuando** el motor renderiza el primer frame.
+        * **Entonces** el sprite de fondo debe cubrir el 100% del área visible (ajuste tipo "cover").
+    * **Escenario 2:** Posicionamiento del personaje.
+        * **Dado que** estoy en la escena de juego.
+        * **Cuando** se instancia el personaje del jugador.
+        * **Entonces** debe aparecer centrado en la parte inferior o en la posición de disparo definida, listo para ser animado.
+    * **Escenario 3:** Adaptabilidad (Responsividad).
+        * **Dado que** cambio el tamaño de la ventana del navegador.
+        * **Cuando** el evento `resize` se dispara.
+        * **Entonces** el fondo debe reescalarse sin perder su relación de aspecto.
+* **Estimación:** **M** (Media, por la lógica de reescalado).
+* **Evaluación INVEST:** Cumple. Es **T**esteable visualmente.
+
+---
+
+#### Sugerencia de Priorización
+
+El orden sugerido de ejecución es el siguiente:
+
+1.  **US1.1 (Configuración):** Es el bloqueante técnico. Sin esto, nadie puede picar código.
+2.  **US1.2 (Escenas):** Establece el flujo de navegación. Es más fácil construir el resto si ya tenemos "donde ponerlo".
+3.  **US1.3 (Asset Loader):** Necesaria para gestionar los recursos que usaremos en las siguientes épicas (platos, sonidos, etc.).
+4.  **US1.4 (Layout/Fondo):** Es la última de esta épica porque, aunque es visual, depende de que las escenas y los assets funcionen.
+
+**Justificación:** Seguimos un enfoque de **"Arquitectura de Caminos Críticos"**. Primero habilitamos la herramienta (Vite), luego el flujo (Escenas) y finalmente el contenido (Assets/Layout). Esto minimiza el retrabajo y permite que, a partir de la US1.2, varios desarrolladores puedan trabajar en paralelo (uno en el menú, otro en la lógica de disparo).
+
+**¿Te parece bien este orden o prefieres que prioricemos la US1.4 para tener algo visual que mostrar a los stakeholders lo antes posible?**
