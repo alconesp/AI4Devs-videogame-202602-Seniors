@@ -14,10 +14,19 @@ export class MainMenuScene extends Phaser.Scene {
     this.onResize = null;
   }
 
+  init() {
+    this.background = null;
+    this.player = null;
+    this.menuPanel = null;
+    this.playButton = null;
+    this.statusText = null;
+    this.onResize = null;
+  }
+
   create() {
     this.createBackground();
-    this.createOverlay();
     this.createPlayer();
+    this.createOverlay();
 
     this.onResize = this.handleResize.bind(this);
     this.scale.on('resize', this.onResize);
@@ -26,7 +35,7 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   createBackground() {
-    this.background = this.add.image(0, 0, textureKeys.background).setOrigin(0.5);
+    this.background = this.add.image(0, 0, textureKeys.background).setOrigin(0.5).setDepth(0);
   }
 
   createOverlay() {
@@ -61,7 +70,7 @@ export class MainMenuScene extends Phaser.Scene {
       subtitle,
       this.statusText,
       this.playButton
-    ]);
+    ]).setDepth(2);
 
     title.setY(-58);
     title.setOrigin(0.5);
@@ -73,7 +82,15 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   createPlayer() {
-    this.player = new PlayerPrefab(this, 0, 0);
+    this.player = new PlayerPrefab(this, 0, 0, textureKeys.playerNeutral1);
+    this.player.setDepth(1);
+    this.player.playLoop([
+      textureKeys.playerNeutral1,
+      textureKeys.playerVictory2,
+      textureKeys.playerNeutral1,
+      textureKeys.playerNeutral2,
+      textureKeys.playerNeutral1
+    ]);
   }
 
   createPlayButton() {
@@ -123,11 +140,13 @@ export class MainMenuScene extends Phaser.Scene {
     }
 
     if (this.player) {
-      this.player.setPosition(width / 2, height - 120);
+      this.player.resizeToCover(width, height);
     }
   }
 
   handleShutdown() {
+    this.player?.stopAnimation();
+
     if (this.onResize) {
       this.scale.off('resize', this.onResize);
       this.onResize = null;

@@ -1,17 +1,80 @@
 import Phaser from 'phaser';
 
 export class PlayerPrefab extends Phaser.GameObjects.Container {
-  constructor(scene, x, y) {
-    const silhouette = scene.add.rectangle(0, 0, 64, 104, 0x11212f, 0.9).setStrokeStyle(2, 0xf5f1d6, 0.9);
-    const shoulders = scene.add.rectangle(0, 36, 110, 24, 0x1c3347, 0.95).setStrokeStyle(2, 0xe5b75c, 0.9);
-    const marker = scene.add.text(0, -78, 'Jugador', {
-      fontFamily: 'Trebuchet MS',
-      fontSize: '16px',
-      color: '#f5f1d6'
-    }).setOrigin(0.5);
+  constructor(scene, x, y, textureKey) {
+    const playerImage = scene.add.image(0, 0, textureKey).setOrigin(0.5);
 
-    super(scene, x, y, [shoulders, silhouette, marker]);
+    super(scene, x, y, [playerImage]);
+
+    this.playerImage = playerImage;
+    this.textureKey = textureKey;
+    this.frameTimer = null;
+    this.animationSequence = [];
+    this.animationStepIndex = 0;
 
     scene.add.existing(this);
+  }
+
+  setTextureKey(textureKey) {
+    if (!this.playerImage || !this.scene.textures.exists(textureKey)) {
+      return;
+    }
+
+    this.textureKey = textureKey;
+    this.playerImage.setTexture(textureKey);
+  }
+
+  resizeToCover(width, height) {
+    if (!this.playerImage?.texture) {
+      return;
+    }
+
+    const scale = Math.max(width / this.playerImage.width, height / this.playerImage.height);
+
+    this.setPosition(width / 2, height / 2);
+    this.playerImage.setScale(scale);
+  }
+
+  playLoop(sequence, config = {}) {
+    if (!Array.isArray(sequence) || sequence.length === 0) {
+      return;
+    }
+
+    this.stopAnimation();
+    this.animationSequence = sequence.slice();
+    this.animationStepIndex = 0;
+    this.setTextureKey(this.animationSequence[0]);
+    this.scheduleNextFrame(config);
+  }
+
+  scheduleNextFrame(config) {
+    const minDelay = config.minDelay ?? 900;
+    const maxDelay = config.maxDelay ?? 2200;
+    const delay = Phaser.Math.Between(minDelay, maxDelay);
+
+    this.frameTimer = this.scene.time.delayedCall(delay, () => {
+      if (this.animationSequence.length === 0) {
+        return;
+      }
+
+      this.animationStepIndex = (this.animationStepIndex + 1) % this.animationSequence.length;
+      this.setTextureKey(this.animationSequence[this.animationStepIndex]);
+      this.scheduleNextFrame(config);
+    });
+  }
+
+  stopAnimation() {
+    if (this.frameTimer) {
+      this.frameTimer.remove(false);
+      this.frameTimer = null;
+    }
+
+    this.animationSequence = [];
+    this.animationStepIndex = 0;
+  }
+
+  destroy(fromScene) {
+    this.stopAnimation();
+    super.destroy(fromScene);
   }
 }

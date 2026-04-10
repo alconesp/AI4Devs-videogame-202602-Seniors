@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <radialGradient id="plateCore" cx="50%" cy="42%" r="58%">
+      <stop offset="0%" stop-color="#fff4c7" />
+      <stop offset="65%" stop-color="#f1c66c" />
+      <stop offset="100%" stop-color="#cf8b2a" />
+    </radialGradient>
+  </defs>
+  <ellipse cx="64" cy="64" rx="50" ry="20" fill="#0b1723" opacity="0.24" />
+  <ellipse cx="64" cy="58" rx="44" ry="18" fill="url(#plateCore)" stroke="#7a4d14" stroke-width="6" />
+  <ellipse cx="64" cy="56" rx="19" ry="7" fill="#fff9e3" opacity="0.92" />
+</svg>

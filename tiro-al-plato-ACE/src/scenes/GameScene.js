@@ -1,11 +1,13 @@
 import Phaser from 'phaser';
 import { textureKeys } from '../assets/manifest.js';
+import { PlayerPrefab } from '../prefabs/PlayerPrefab.js';
 import { sceneKeys } from './sceneKeys.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
     super(sceneKeys.game);
     this.background = null;
+    this.player = null;
     this.hud = null;
     this.instructions = null;
     this.scoreText = null;
@@ -21,6 +23,7 @@ export class GameScene extends Phaser.Scene {
 
   init() {
     this.background = null;
+    this.player = null;
     this.hud = null;
     this.instructions = null;
     this.scoreText = null;
@@ -36,6 +39,7 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     this.createBackground();
+    this.createPlayer();
     this.createHud();
     this.registerSceneEvents();
     this.registerInput();
@@ -45,12 +49,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   createBackground() {
-    this.background = this.add.image(0, 0, textureKeys.background).setOrigin(0.5);
-    this.add.rectangle(0, 0, 1, 1, 0x08111a, 0.42).setOrigin(0);
+    this.background = this.add.image(0, 0, textureKeys.background).setOrigin(0.5).setDepth(0);
+  }
+
+  createPlayer() {
+    this.player = new PlayerPrefab(this, 0, 0, textureKeys.playerAimCenter);
+    this.player.setDepth(1);
   }
 
   createHud() {
-    this.hud = this.add.container(0, 0);
+    this.hud = this.add.container(0, 0).setDepth(2);
 
     const panel = this.add.rectangle(0, 0, 560, 220, 0x102236, 0.82)
       .setOrigin(0.5)
@@ -152,9 +160,15 @@ export class GameScene extends Phaser.Scene {
     if (this.hud) {
       this.hud.setPosition(width / 2, height / 2);
     }
+
+    if (this.player) {
+      this.player.resizeToCover(width, height);
+    }
   }
 
   handleShutdown() {
+    this.player?.stopAnimation();
+
     if (this.onResize) {
       this.scale.off('resize', this.onResize);
       this.onResize = null;
