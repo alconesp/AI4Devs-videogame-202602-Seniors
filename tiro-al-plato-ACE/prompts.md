@@ -322,6 +322,9 @@ Aquí tienes el desglose de User Stories para esta primera fase, diseñadas para
         * **Dado que** cambio el tamaño de la ventana del navegador.
         * **Cuando** el evento `resize` se dispara.
         * **Entonces** el fondo debe reescalarse sin perder su relación de aspecto.
+* **Notas adicionales:**
+    * Todos los assets del jugador (n1.png, n2.png, tc.png, td.png, ti.png, v1.png y v2.png) tienen el mismo tamaño que el asset fondo.png. A la hora de colocarlos en pantalla se deben colocar justo encima del fondo ocupando exactamente el mismo tamaño.
+    * La pantalla principal puede hacer una pequeña animación del jugador siguiendo el siguiente flujo n1.png -> v2.png -> n1.png -> n2.png -> n1.png (punto de inicio). Esta animación debe estar espaciada en el tiempo y cada cambio tendrá una duración aleatoria, no debe ser una animación rápida.
 * **Estimación:** **M** (Media, por la lógica de reescalado).
 * **Evaluación INVEST:** Cumple. Es **T**esteable visualmente.
 
@@ -339,3 +342,155 @@ El orden sugerido de ejecución es el siguiente:
 **Justificación:** Seguimos un enfoque de **"Arquitectura de Caminos Críticos"**. Primero habilitamos la herramienta (Vite), luego el flujo (Escenas) y finalmente el contenido (Assets/Layout). Esto minimiza el retrabajo y permite que, a partir de la US1.2, varios desarrolladores puedan trabajar en paralelo (uno en el menú, otro en la lógica de disparo).
 
 **¿Te parece bien este orden o prefieres que prioricemos la US1.4 para tener algo visual que mostrar a los stakeholders lo antes posible?**
+
+### Definición de las historias de la segunda épica
+
+Épica 2: El Core Gameplay (The Shooting Loop)
+* **Objetivo:** Conseguir que la mecánica principal sea funcional y precisa.
+* **Descripción de la mecánica:**
+    * La mecánica de juego será la siguiente:
+        * En el centro de la pantalla deben aparecer dos cuadrados rojos, separados por un espacio. Cada cuadrado representa la zona de tiro del jugador. El cuadrado de la derecha se activa pulsando la tecla de "Flecha derecha", y el cuadrado de la izquierda se activa pulsando la tecla "Flecha Izquierda" del teclado.
+        * Del lado derecho de la pantalla, irán apareciendo los platos. Cada uno de los los platos saldrá con un ángulo diferente y harán un movimiento diferente por la pantalla.
+        * Los cuadrados centrales se mueven de arriba a abajo manteniendo siempre la altura del plato más cercano que tengan.
+        * Cuando el plato llega a la altura del cuadrado derecho, si el usuario pulsa la tecla "Flecha derecha", el plato se debe romper si está dentro del cuadrado. Cuando el plato llega a la altura del cuadrado izquierdo, si el usuario pulsa la tecla "Flecha izquierda", el plato se debe romper si está dentro del cuadrado.
+        * Al pulsar la tecla "Flecha derecha", se debe cambiar la imagen del personaje y poner el asset td.png.
+        * Al pulsar la tecla "Flecha izquierda", se debe cambiar la imagen del personaje y poner el asset ti.png.
+        * Cada vez que se rompe un plato, se deben sumar 100 puntos al marcador.
+        * Cada vez que se rompe un plato la velocidad de todos los platos se incrementa un poco y el tamaño de los cuadrados centrales se aumenta un poco hasta llegar a un aumento del doble de tamaño inicial para los cuadrados, y un aumento de un 50% de la velocidad inicial para los platos.
+        * Cada 10 platos que se lancen por la derecha se lanzará un plato por la izquierda. Si el jugador ha conseguido acertar en todos los platos de la derecha, el plato que aparece por la izquierda será de otro color y valor: azul - 200ptos, rojo - 500ptos, verde - 1000ptos (Este será el último plato a lanzar de la partida)
+        * Si el jugador falla en algún momento, la velocidad de los platos se reseteará a la velocidad inicial y el tamaño de los cuadrados centrales se cambiará para ser del tamaño inicial.
+        * Si el jugador ha conseguido acertar en todos los platos de la partida, como punto extra, debe aparecer una nave extraterrestre cruzando el cielo a gran velocidad. Los cuadros centrales se moveran a la altura de la nave para poder dispararle. Si consigue acertar el tiro, la nave se romperá y se sumarán 5000ptos.
+* **Historias de Usuario clave:**
+    * Implementación del sistema de disparo con detección de colisión.
+    * Lógica de lanzamiento de platos (Trayectoria parabólica mediante física 2D).
+    * Controlador del personaje (animación de disparo y posición estática).
+    * Sistema de gestión de "Vidas" (platos perdidos) y fin de partida.
+
+
+A partir de la descripción de la segunda épica, genera las User Stories necesarias para desarrollar esa funcionalidad, que cumplan los criterios INVEST. Para cada una incluye:
+- Título descriptivo
+- Historia en formato "Como [rol], quiero [acción], para [beneficio]"
+- 3 criterios de aceptación en formato BDD (Dado que/Cuando/Entonces)
+- Estimación de complejidad (S/M/L)
+- Evaluación breve contra INVEST
+
+Después de generar las historias, sugiere un orden de priorización y justifica tu decisión.
+Ten en cuenta que estamos generando desde cero el proyecto, por lo que serán necesarias, posiblemente, historias para la configuración del entorno de desarrollo.
+
+Respuesta:
+
+Esta es una épica densa, con mecánicas muy específicas de los juegos de arcade. Como tu PO y Lead Dev, voy a desglosar esta complejidad en historias que permitan probar el "bucle de juego" lo antes posible.
+
+Aquí tienes las User Stories para la **Épica 2: El Core Gameplay**.
+
+---
+
+#### Épica 2: El Core Gameplay (The Shooting Loop)
+
+##### US 2.1: Sistema de Control y Zonas de Tiro
+* **Historia:** Como **jugador**, quiero **controlar dos zonas de tiro con el teclado y ver cambios en mi personaje**, para **reaccionar a los platos que se aproximan**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Activación de zonas.
+        * **Dado que** estoy en la partida.
+        * **Cuando** pulso "Flecha Derecha" o "Flecha Izquierda".
+        * **Entonces** el cuadrado rojo correspondiente debe emitir una señal visual de activación y el personaje debe cambiar su imagen a `td.png` o `ti.png` respectivamente.
+    * **Escenario 2:** Seguimiento automático de altura.
+        * **Dado que** hay un plato en pantalla.
+        * **Cuando** el plato se desplaza verticalmente.
+        * **Entonces** el cuadrado de tiro más cercano debe ajustar su posición Y automáticamente para coincidir con la del plato.
+    * **Escenario 3:** Reposo del personaje.
+        * **Dado que** no estoy pulsando ninguna tecla.
+        * **Cuando** pasa el tiempo de la animación de disparo.
+        * **Entonces** el personaje debe volver a su frame estático por defecto.
+* **Estimación:** **M** (Media).
+* **Evaluación INVEST:** Cumple. Es **V**aliosa (define el control) y **T**esteable (verificación visual de inputs).
+
+---
+
+##### US 2.2: Motor de Lanzamiento y Trayectorias
+* **Historia:** Como **desarrollador**, quiero un **sistema que genere platos con ángulos aleatorios**, para **crear un reto variable para el jugador**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Lanzamiento desde la derecha.
+        * **Dado que** el temporizador de generación se activa.
+        * **Cuando** el sistema crea un plato.
+        * **Entonces** este debe aparecer en el borde derecho y moverse hacia la izquierda con un ángulo de trayectoria aleatorio.
+    * **Escenario 2:** Rotación y Movimiento.
+        * **Dado que** un plato está activo.
+        * **Cuando** transcurre el tiempo.
+        * **Entonces** el plato debe actualizar su posición X/Y basándose en su vector de velocidad y ángulo inicial.
+    * **Escenario 3:** Limpieza de memoria.
+        * **Dado que** un plato sale de los límites de la pantalla por la izquierda sin ser destruido.
+        * **Cuando** cruza el límite.
+        * **Entonces** el objeto debe ser destruido (o devuelto al pool) para no consumir recursos.
+* **Estimación:** **M** (Media).
+* **Evaluación INVEST:** Cumple. Es **I**ndependiente del sistema de puntos y **S**mall (enfocada solo en movimiento).
+
+---
+
+##### US 2.3: Sistema de Colisión e Impacto (Hitbox)
+* **Historia:** Como **jugador**, quiero **romper los platos cuando están dentro del cuadrado**, para **progresar en el juego y ganar puntos**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Acierto (Hit).
+        * **Dado que** un plato está colisionando con el área del cuadrado rojo.
+        * **Cuando** pulso la tecla de dirección correspondiente a ese cuadrado.
+        * **Entonces** el plato debe desaparecer, se deben sumar 100 puntos y el sistema debe registrar un "acierto".
+    * **Escenario 2:** Fallo por tiempo (Miss).
+        * **Dado que** un plato cruza el cuadrado de tiro.
+        * **Cuando** el jugador no pulsa la tecla o la pulsa fuera de tiempo.
+        * **Entonces** el plato continúa su camino y el sistema debe registrar un "fallo".
+    * **Escenario 3:** Feedback de rotura.
+        * **Dado que** un plato es impactado.
+        * **Cuando** ocurre la colisión.
+        * **Entonces** se debe instanciar un efecto visual de "plato roto" en la posición del impacto.
+* **Estimación:** **S** (Pequeña).
+* **Evaluación INVEST:** Cumple. Es **V**aliosa y muy específica (**S**mall).
+
+---
+
+##### US 2.4: Dificultad Dinámica y Escalado
+* **Historia:** Como **Product Owner**, quiero que **el juego sea más difícil a medida que el jugador acierta**, para **mantener el interés y el flujo de juego (Flow State)**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Incremento por acierto.
+        * **Dado que** el jugador rompe un plato con éxito.
+        * **Cuando** se actualiza el estado.
+        * **Entonces** la velocidad global de los platos debe aumentar un pequeño porcentaje (hasta un tope de +50%) y el tamaño de los cuadrados debe crecer (hasta un máximo de 2x).
+    * **Escenario 2:** Reset por fallo.
+        * **Dado que** el sistema registra un fallo (plato perdido).
+        * **Cuando** ocurre el evento de fallo.
+        * **Entonces** la velocidad de los platos y el tamaño de los cuadrados deben volver instantáneamente a sus valores iniciales.
+* **Estimación:** **S** (Pequeña).
+* **Evaluación INVEST:** Cumple. Es **N**egociable (los porcentajes exactos pueden ajustarse en el testing).
+
+---
+
+##### US 2.5: Lógica de Platos Especiales y Evento Nave (Endgame)
+* **Historia:** Como **jugador experto**, quiero **enfrentarme a platos especiales y una nave final**, para **obtener puntuaciones masivas y un cierre épico**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Plato por la izquierda.
+        * **Dado que** se han lanzado 10 platos por la derecha.
+        * **Cuando** toca el siguiente lanzamiento.
+        * **Entonces** el plato debe salir por el lado izquierdo.
+    * **Escenario 2:** Colores y Valores.
+        * **Dado que** el jugador tiene un "Perfect Streak" (no ha fallado ningún plato de la derecha).
+        * **Cuando** sale el plato de la izquierda.
+        * **Entonces** este debe ser de color (Azul, Rojo o Verde) y otorgar el puntaje correspondiente (200, 500, 1000).
+    * **Escenario 3:** Evento Nave Extraterrestre.
+        * **Dado que** el jugador ha acertado todos los platos de la partida (incluyendo el verde final).
+        * **Cuando** termina la secuencia de platos.
+        * **Entonces** debe aparecer la Nave cruzando el cielo, los cuadrados deben seguir su altura y, al acertar, otorgar 5000 puntos.
+* **Estimación:** **L** (Grande). Requiere gestión de estados complejos (Perfect streak, contadores, comportamiento de la nave).
+* **Evaluación INVEST:** Cumple. Aunque es más grande, es **E**stimable y es la fuente principal de **V**alor para el "re-playability".
+
+---
+
+#### Priorización y Justificación
+
+El orden sugerido es:
+1.  **US 2.1 (Control)** & **US 2.2 (Lanzamiento):** Es imposible probar el juego sin movimiento ni entrada. Se pueden desarrollar en paralelo.
+2.  **US 2.3 (Colisiones):** Cierra el ciclo básico de juego (*Core Loop*). Sin esto, es solo un protector de pantalla.
+3.  **US 2.4 (Dificultad):** Una vez que el juego "se puede jugar", necesitamos que "se sienta bien". El escalado es clave para el balance.
+4.  **US 2.5 (Especiales/Nave):** Es el contenido de "endgame". Se deja para el final porque depende de que toda la lógica de colisión, movimiento y puntuación esté perfectamente pulida.
+
+**Justificación:** Seguimos la regla de oro del desarrollo de videojuegos: **"Find the fun first"**. El "fun" está en el ritmo de disparar a los platos (2.1, 2.2, 2.3). Las reglas especiales (2.5) son la "guinda del pastel".
+
+**¿Te gustaría que profundice en el algoritmo matemático para el escalado de la velocidad en la US 2.4 o pasamos a definir los componentes de la Épica 3 (UI)?**
