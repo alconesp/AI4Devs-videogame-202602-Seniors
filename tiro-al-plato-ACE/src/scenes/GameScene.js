@@ -1,7 +1,16 @@
 import Phaser from 'phaser';
 import { textureKeys } from '../assets/manifest.js';
+import { PlatePrefab } from '../prefabs/PlatePrefab.js';
 import { PlayerPrefab } from '../prefabs/PlayerPrefab.js';
 import { sceneKeys } from './sceneKeys.js';
+
+const PLATE_SPAWN_POINT = Object.freeze({ x: 1536, y: 600 });
+const PLATE_END_X = -96;
+const PLATE_FIXED_SPEED = 660;
+const PLATE_SCALE = 0.2;
+const PLATE_MIN_ARC_HEIGHT = 160;
+const PLATE_MAX_ARC_HEIGHT = 320;
+const PLATE_SPAWN_DELAY = 1100;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -15,6 +24,8 @@ export class GameScene extends Phaser.Scene {
     this.score = 0;
     this.elapsedSeconds = 0;
     this.roundTimer = null;
+    this.plateSpawnTimer = null;
+    this.activePlates = [];
     this.onResize = null;
     this.onScore = null;
     this.onFinish = null;
@@ -31,6 +42,8 @@ export class GameScene extends Phaser.Scene {
     this.score = 0;
     this.elapsedSeconds = 0;
     this.roundTimer = null;
+    this.plateSpawnTimer = null;
+    this.activePlates = [];
     this.onResize = null;
     this.onScore = null;
     this.onFinish = null;
@@ -44,6 +57,7 @@ export class GameScene extends Phaser.Scene {
     this.registerSceneEvents();
     this.registerInput();
     this.startRoundTimer();
+    this.startPlateSpawner();
     this.handleResize(this.scale.gameSize);
     this.updateHud();
   }
@@ -129,6 +143,76 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  startPlateSpawner() {
+    this.spawnPlate();
+
+    this.plateSpawnTimer = this.time.addEvent({
+      delay: PLATE_SPAWN_DELAY,
+      loop: true,
+      callback: () => {
+        this.spawnPlate();
+      }
+    });
+  }
+
+  spawnPlate() {
+    const travelDistance = PLATE_SPAWN_POINT.x - PLATE_END_X;
+    const travelDuration = travelDistance / PLATE_FIXED_SPEED;
+    const maxArcHeight = Math.min(PLATE_MAX_ARC_HEIGHT, PLATE_SPAWN_POINT.y - 120);
+    const arcHeight = Phaser.Math.FloatBetween(PLATE_MIN_ARC_HEIGHT, maxArcHeight);
+    const controlX = (PLATE_SPAWN_POINT.x + PLATE_END_X) * 0.5;
+    const controlY = PLATE_SPAWN_POINT.y - (arcHeight * 2);
+    const initialVelocityX = (2 * (controlX - PLATE_SPAWN_POINT.x)) / travelDuration;
+    const initialVelocityY = (2 * (controlY - PLATE_SPAWN_POINT.y)) / travelDuration;
+    const launchAngle = Phaser.Math.RadToDeg(
+      Math.atan2(Math.abs(initialVelocityY), Math.abs(initialVelocityX))
+    );
+    const plate = new PlatePrefab(this, PLATE_SPAWN_POINT.x, PLATE_SPAWN_POINT.y, textureKeys.plate, {
+      startX: PLATE_SPAWN_POINT.x,
+      startY: PLATE_SPAWN_POINT.y,
+      endX: PLATE_END_X,
+      endY: PLATE_SPAWN_POINT.y,
+      controlX,
+      controlY,
+      travelDuration,
+      launchAngle,
+      scale: PLATE_SCALE
+    });
+
+    plate.setDepth(1.5);
+    this.activePlates.push(plate);
+  }
+
+  update(_time, delta) {
+    if (this.activePlates.length === 0) {
+      return;
+    }
+
+    const deltaSeconds = delta / 1000;
+
+    for (let index = this.activePlates.length - 1; index >= 0; index -= 1) {
+      const plate = this.activePlates[index];
+
+      plate.advance(deltaSeconds);
+
+      if (!plate.hasExitedLeftBoundary()) {
+        continue;
+      }
+
+      this.destroyPlateAt(index);
+    }
+  }
+
+  destroyPlateAt(index) {
+    const [plate] = this.activePlates.splice(index, 1);
+    plate?.destroy();
+  }
+
+  destroyAllPlates() {
+    this.activePlates.forEach((plate) => plate.destroy());
+    this.activePlates = [];
+  }
+
   finishRound() {
     this.registry.set('lastScore', this.score);
     this.registry.set('lastDuration', this.elapsedSeconds);
@@ -193,5 +277,12 @@ export class GameScene extends Phaser.Scene {
       this.roundTimer.remove(false);
       this.roundTimer = null;
     }
+
+    if (this.plateSpawnTimer) {
+      this.plateSpawnTimer.remove(false);
+      this.plateSpawnTimer = null;
+    }
+
+    this.destroyAllPlates();
   }
 }
