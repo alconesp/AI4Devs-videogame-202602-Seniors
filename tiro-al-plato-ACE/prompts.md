@@ -410,7 +410,7 @@ Aquí tienes las User Stories para la **Épica 2: El Core Gameplay**.
 ##### US 2.2: Motor de Lanzamiento y Trayectorias
 * **Historia:** Como **desarrollador**, quiero un **sistema que genere platos con ángulos aleatorios**, para **crear un reto variable para el jugador**.
 * **Criterios de Aceptación (BDD):**
-    * **Escenario 1:** Lanzamiento desde la derecha.
+    * **Escenario 1:** Lanzamiento desde la derecha. Las coordenadas de salida son 1536x600. El ángulo de salida no puede ser inferior a 18 grados.
         * **Dado que** el temporizador de generación se activa.
         * **Cuando** el sistema crea un plato.
         * **Entonces** este debe aparecer en el borde derecho y moverse hacia la izquierda con un ángulo de trayectoria aleatorio.
@@ -469,7 +469,7 @@ Aquí tienes las User Stories para la **Épica 2: El Core Gameplay**.
     * **Escenario 1:** Plato por la izquierda.
         * **Dado que** se han lanzado 10 platos por la derecha.
         * **Cuando** toca el siguiente lanzamiento.
-        * **Entonces** el plato debe salir por el lado izquierdo.
+        * **Entonces** el plato debe salir por el lado izquierdo. Las coordenadas de salida son 0x600. El ángulo de salida no puede ser inferior a 18 grados.
     * **Escenario 2:** Colores y Valores.
         * **Dado que** el jugador tiene un "Perfect Streak" (no ha fallado ningún plato de la derecha).
         * **Cuando** sale el plato de la izquierda.
