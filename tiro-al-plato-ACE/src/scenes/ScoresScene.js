@@ -7,14 +7,19 @@ import {
   saveRankingEntry,
   wouldScoreEnterRanking
 } from '../game/rankingStorage.js';
+import { PlayerPrefab } from '../prefabs/PlayerPrefab.js';
 import { sceneKeys } from './sceneKeys.js';
 
 const ARCADE_INITIALS_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const RANKING_POPUP_WIDTH = 500;
+const RANKING_POPUP_HEIGHT = 360;
+const RANKING_PLAYER_FRAME_DELAY = 220;
 
 export class ScoresScene extends Phaser.Scene {
   constructor() {
     super(sceneKeys.scores);
     this.background = null;
+    this.player = null;
     this.layout = null;
     this.onResize = null;
     this.score = 0;
@@ -35,10 +40,12 @@ export class ScoresScene extends Phaser.Scene {
     this.rankingConfirmedCount = 0;
     this.rankingBlinkTween = null;
     this.onPopupKeyDown = null;
+    this.rankingPlayerFrameTimer = null;
   }
 
   init(data) {
     this.background = null;
+    this.player = null;
     this.layout = null;
     this.onResize = null;
     this.score = data?.score ?? this.registry.get('lastScore') ?? 0;
@@ -59,10 +66,15 @@ export class ScoresScene extends Phaser.Scene {
     this.rankingConfirmedCount = 0;
     this.rankingBlinkTween = null;
     this.onPopupKeyDown = null;
+    this.rankingPlayerFrameTimer = null;
   }
 
   create() {
     this.background = this.add.image(0, 0, textureKeys.background).setOrigin(0.5);
+
+    if (this.qualifiesForRanking) {
+      this.createVictoryPlayer();
+    }
 
     if (!this.qualifiesForRanking) {
       this.createResultsLayout();
@@ -76,6 +88,12 @@ export class ScoresScene extends Phaser.Scene {
     if (this.qualifiesForRanking) {
       this.openRankingPopup();
     }
+  }
+
+  createVictoryPlayer() {
+    this.player = new PlayerPrefab(this, 0, 0, textureKeys.playerVictory2);
+    this.player.setDepth(1);
+    this.startRankingVictoryAnimation();
   }
 
   createResultsLayout() {
@@ -187,10 +205,10 @@ export class ScoresScene extends Phaser.Scene {
       .setInteractive()
       .setDepth(10);
 
-    const panel = this.add.rectangle(0, 0, 500, 360, 0x102236, 0.96)
+    const panel = this.add.rectangle(0, 0, RANKING_POPUP_WIDTH, RANKING_POPUP_HEIGHT, 0x102236, 0.96)
       .setStrokeStyle(2, 0xe5b75c, 0.92);
 
-    const title = this.add.text(0, -82, 'Nuevo Top 10', {
+    const title = this.add.text(0, -102, 'Nuevo Top 10', {
       fontFamily: 'Trebuchet MS',
       fontSize: '30px',
       fontStyle: 'bold',
@@ -246,6 +264,32 @@ export class ScoresScene extends Phaser.Scene {
     };
     this.input.keyboard.on('keydown', this.onPopupKeyDown);
     this.handleResize(this.scale.gameSize);
+  }
+
+  startRankingVictoryAnimation() {
+    if (!this.player) {
+      return;
+    }
+
+    if (this.rankingPlayerFrameTimer) {
+      this.rankingPlayerFrameTimer.remove(false);
+    }
+
+    const frames = [
+      textureKeys.playerVictory2,
+      textureKeys.playerVictory1
+    ];
+    let frameIndex = 0;
+
+    this.player.setTextureKey(frames[frameIndex]);
+    this.rankingPlayerFrameTimer = this.time.addEvent({
+      delay: RANKING_PLAYER_FRAME_DELAY,
+      loop: true,
+      callback: () => {
+        frameIndex = (frameIndex + 1) % frames.length;
+        this.player?.setTextureKey(frames[frameIndex]);
+      }
+    });
   }
 
   handlePopupKeyDown(event) {
@@ -385,6 +429,11 @@ export class ScoresScene extends Phaser.Scene {
       this.onPopupKeyDown = null;
     }
 
+    if (this.rankingPlayerFrameTimer) {
+      this.rankingPlayerFrameTimer.remove(false);
+      this.rankingPlayerFrameTimer = null;
+    }
+
     if (this.rankingBlinkTween) {
       this.rankingBlinkTween.remove();
       this.rankingBlinkTween = null;
@@ -411,12 +460,17 @@ export class ScoresScene extends Phaser.Scene {
       this.layout.setPosition(width / 2, height / 2);
     }
 
+    if (this.player) {
+      this.player.resizeToCover(width, height);
+    }
+
     if (this.rankingBackdrop) {
       this.rankingBackdrop.setSize(width, height);
     }
 
     if (this.rankingModal) {
-      this.rankingModal.setPosition(width / 2, height / 2);
+      this.rankingModal.setPosition(width / 2, Math.max(height / 2 - 110, 160));
+      this.rankingModal.setScale(Math.min((width - 40) / RANKING_POPUP_WIDTH, (height - 40) / RANKING_POPUP_HEIGHT, 1));
     }
   }
 
@@ -427,5 +481,8 @@ export class ScoresScene extends Phaser.Scene {
     }
 
     this.closeRankingPopup();
+
+    this.player?.destroy();
+    this.player = null;
   }
 }
