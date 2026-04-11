@@ -496,3 +496,126 @@ El orden sugerido es:
 **Justificación:** Seguimos la regla de oro del desarrollo de videojuegos: **"Find the fun first"**. El "fun" está en el ritmo de disparar a los platos (2.1, 2.2, 2.3). Las reglas especiales (2.5) son la "guinda del pastel".
 
 **¿Te gustaría que profundice en el algoritmo matemático para el escalado de la velocidad en la US 2.4 o pasamos a definir los componentes de la Épica 3 (UI)?**
+
+### Definición de la tercera épica
+
+Épica 3: Interfaz de Usuario y Navegación (Menus & UI)
+* **Objetivo:** Mejorar la interfaz de usuario y la navegación entre pantallas
+* **Descripción:**
+En esta épica vamos a mejorar la interfaz de usuario del menú principal y la escena de juego para que sea mucho mejor:
+    * El popup del menú principal debe incluir el título del juego (Tiro al Plato), un botón para entrar en la partida (Nueva partida), un botón para ver las mejores puntuaciones (Ranking), y un botón de ayuda para mostrar información sobre los controles del juego (Controles)
+    * En la pantalla de juego debemos quitar el popup con toda la información ya que molesta bastante a la hora de jugar.
+    * El contador de tiempo lo pondremos en el marcador que hay en la parte baja a la derecha del fondo. Ajustando la visual del marcador de tiempo para que parezca integrado en la pantalla.
+    * La puntuación y el número de platos que hemso roto los mostraremos en una barra superior, de estilo similar al popup. El formato para los platos será: Platos 2/33, donde 2 es el número de aciertos que hemos tenido.
+    * Hay que crear una nueva escena para el ranking de puntuaciones. Por ahora aparecerá vacía y con la opción de volver al menú principal
+    * Hay que crear una nueva escena para mostrar los controles. Debe poner toda la información sobre las teclas que usamos durante el juego. Debería ser una información visual.
+* **Historias de Usuario clave:**
+    * Actualización del popup del menú principal para hacerlo más llamativo
+    * Actualización de la interfaz de la escena de juego para que esté mejor integrada
+    * Creación de la escena para mostrar los controles
+    * Creación de la escena para mostrar el ranking
+
+A partir de la descripción de la tercera épica, genera las User Stories necesarias para desarrollar esa funcionalidad, que cumplan los criterios INVEST. Para cada una incluye:
+- Título descriptivo
+- Historia en formato "Como [rol], quiero [acción], para [beneficio]"
+- 3 criterios de aceptación en formato BDD (Dado que/Cuando/Entonces)
+- Estimación de complejidad (S/M/L)
+- Evaluación breve contra INVEST
+
+Después de generar las historias, sugiere un orden de priorización y justifica tu decisión.
+Ten en cuenta que estamos generando desde cero el proyecto, por lo que serán necesarias, posiblemente, historias para la configuración del entorno de desarrollo.
+
+Respuesta:
+
+En esta etapa, como tu **Senior Product Owner**, nos enfocaremos en la "capa de barniz" y la experiencia de usuario (UX). Ya tenemos la mecánica (Épica 2), ahora necesitamos que el jugador entienda qué hacer y se sienta inmerso en la estética arcade.
+
+Aquí tienes el desglose de User Stories para la **Épica 3: Interfaz de Usuario y Navegación**.
+
+---
+
+#### Épica 3: Interfaz de Usuario y Navegación (Menus & UI)
+
+##### US 3.1: Menú Principal Extendido y Popup Visual
+* **Historia:** Como **jugador**, quiero un **menú principal con opciones claras y un diseño atractivo**, para **navegar fácilmente hacia las distintas secciones del juego**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Visualización de elementos.
+        * **Dado que** estoy en el menú principal.
+        * **Cuando** carga la escena.
+        * **Entonces** debo ver el título "Tiro al Plato" y tres botones: "Nueva Partida", "Ranking" y "Controles", todos dentro del popup central.
+    * **Escenario 2:** Estilo visual.
+        * **Dado que** se despliega el popup.
+        * **Cuando** el usuario lo visualiza.
+        * **Entonces** el diseño debe ser consistente con la estética del juego, utilizando el fondo común detrás del popup.
+    * **Escenario 3:** Funcionalidad de botones.
+        * **Dado que** interactúo con los botones.
+        * **Cuando** hago clic en cualquiera de ellos.
+        * **Entonces** el sistema debe cambiar a la escena correspondiente (GameScene, RankingScene o ControlsScene).
+* **Estimación:** **M** (Media, por el diseño y pulido estético).
+* **Evaluación INVEST:** Cumple. Es **V**aliosa para la imagen del producto y **T**esteable mediante navegación.
+
+---
+
+##### US 3.2: HUD de Juego Integrado y Barra Superior
+* **Historia:** Como **jugador**, quiero que **la información de la partida esté integrada visualmente en el entorno**, para **poder concentrarme en disparar sin distracciones de popups**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Barra superior de estado.
+        * **Dado que** estoy en la escena de juego.
+        * **Cuando** miro la parte superior.
+        * **Entonces** debo ver una barra (estilo popup) que muestre la puntuación actual y el contador de platos en formato "Platos X/33".
+    * **Escenario 2:** Temporizador integrado.
+        * **Dado que** el tiempo de la partida transcurre.
+        * **Cuando** miro el marcador del fondo (inferior derecha).
+        * **Entonces** el valor numérico del tiempo debe aparecer renderizado dentro de ese marcador, pareciendo parte del dibujo del fondo.
+    * **Escenario 3:** Limpieza visual.
+        * **Dado que** la partida comienza.
+        * **Cuando** el juego está activo.
+        * **Entonces** no debe haber ningún popup central bloqueando la visibilidad de los platos o el personaje.
+* **Estimación:** **M** (Media, requiere ajustes finos de coordenadas sobre el asset del fondo).
+* **Evaluación INVEST:** Cumple. Es **I**ndependiente de las otras escenas y **S**mall.
+
+---
+
+##### US 3.3: Escena de Ayuda Visual (Controles)
+* **Historia:** Como **jugador nuevo**, quiero ver una **guía visual de los controles**, para **aprender a jugar rápidamente sin frustraciones**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Representación gráfica.
+        * **Dado que** entro en la escena de "Controles".
+        * **Cuando** se muestra la información.
+        * **Entonces** debo ver iconos de las teclas "Flecha Izquierda" y "Flecha Derecha" asociados a sus acciones de tiro de forma visual.
+    * **Escenario 2:** Retorno al menú.
+        * **Dado que** estoy leyendo los controles.
+        * **Cuando** pulso el botón de "Atrás".
+        * **Entonces** el juego debe regresar a la escena de Menú Principal inmediatamente.
+* **Estimación:** **S** (Pequeña).
+* **Evaluación INVEST:** Cumple. Es **N**egociable en cuanto a qué tan compleja es la ilustración y **E**stimable.
+
+---
+
+##### US 3.4: Escena de Ranking (Estructura de Datos)
+* **Historia:** Como **jugador competitivo**, quiero una **pantalla dedicada al ranking**, para **prepararme para ver mis futuros récords**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Visualización inicial.
+        * **Dado que** entro en la escena de "Ranking".
+        * **Cuando** no hay datos guardados aún.
+        * **Entonces** se debe mostrar la lista vacía o con placeholders (ej. "AAA - 000") y el botón para volver al menú.
+    * **Escenario 2:** Estética coherente.
+        * **Dado que** la escena carga.
+        * **Cuando** se visualiza el fondo.
+        * **Entonces** debe ser el mismo fondo del juego pero con el listado de puntuaciones en el centro.
+* **Estimación:** **S** (Pequeña, la lógica de guardado real vendrá en la Épica 4).
+* **Evaluación INVEST:** Cumple. Es **V**aliosa como base y **S**mall.
+
+---
+
+#### Priorización Sugerida y Justificación
+
+Como PO, priorizo el orden de la siguiente manera:
+
+1.  **US 3.2 (HUD de Juego):** **Prioridad Máxima**. Es vital para el "Game Feel". La Épica 2 ya definió cómo se juega, pero sin esta historia, la experiencia de juego es molesta. Necesitamos ver la puntuación y el tiempo integrados para validar que el juego es divertido.
+2.  **US 3.1 (Menú Principal):** Es el punto de entrada. Permite conectar todas las piezas que estamos construyendo.
+3.  **US 3.3 (Controles):** Fundamental para el *onboarding*. Un jugador que no sabe cómo disparar abandonará el juego en 10 segundos.
+4.  **US 3.4 (Ranking):** Es la de menor prioridad en esta fase, ya que es una cáscara vacía hasta que implementemos la persistencia en la siguiente épica.
+
+**Justificación:** Seguimos la filosofía de **"Gameplay First"**. Primero nos aseguramos de que la pantalla de juego se vea profesional y limpia (HUD), y luego construimos los accesos (Menú y Ayuda) que rodean a esa experiencia central.
+
+**¿Damos el visto bueno a esta priorización para empezar a definir la Épica 4 (Persistencia y el sistema de iniciales arcade)?**
