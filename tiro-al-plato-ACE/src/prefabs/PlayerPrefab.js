@@ -8,7 +8,9 @@ export class PlayerPrefab extends Phaser.GameObjects.Container {
 
     this.playerImage = playerImage;
     this.textureKey = textureKey;
+    this.defaultTextureKey = textureKey;
     this.frameTimer = null;
+    this.shotTimer = null;
     this.animationSequence = [];
     this.animationStepIndex = 0;
 
@@ -22,6 +24,18 @@ export class PlayerPrefab extends Phaser.GameObjects.Container {
 
     this.textureKey = textureKey;
     this.playerImage.setTexture(textureKey);
+  }
+
+  playShot(textureKey, config = {}) {
+    const resetDelay = config.resetDelay ?? 180;
+
+    this.stopAnimation();
+    this.setTextureKey(textureKey);
+
+    this.shotTimer = this.scene.time.delayedCall(resetDelay, () => {
+      this.setTextureKey(this.defaultTextureKey);
+      this.shotTimer = null;
+    });
   }
 
   resizeToCover(width, height) {
@@ -67,6 +81,11 @@ export class PlayerPrefab extends Phaser.GameObjects.Container {
     if (this.frameTimer) {
       this.frameTimer.remove(false);
       this.frameTimer = null;
+    }
+
+    if (this.shotTimer) {
+      this.shotTimer.remove(false);
+      this.shotTimer = null;
     }
 
     this.animationSequence = [];

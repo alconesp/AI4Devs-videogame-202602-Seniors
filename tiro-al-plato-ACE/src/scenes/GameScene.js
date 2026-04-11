@@ -11,12 +11,20 @@ const PLATE_SCALE = 0.2;
 const PLATE_MIN_ARC_HEIGHT = 160;
 const PLATE_MAX_ARC_HEIGHT = 320;
 const PLATE_SPAWN_DELAY = 1100;
+const SHOOT_ZONE_SIZE = 46;
+const SHOOT_ZONE_ALPHA = 0.78;
+const SHOOT_ZONE_Y_RATIO = 0.72;
+const SHOOT_ZONE_LEFT_X_RATIO = 0.39;
+const SHOOT_ZONE_RIGHT_X_RATIO = 0.61;
+const SHOT_RESET_DELAY = 180;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
     super(sceneKeys.game);
     this.background = null;
     this.player = null;
+    this.leftShootZone = null;
+    this.rightShootZone = null;
     this.hud = null;
     this.instructions = null;
     this.scoreText = null;
@@ -28,6 +36,8 @@ export class GameScene extends Phaser.Scene {
     this.activePlates = [];
     this.onResize = null;
     this.onScore = null;
+    this.onShootLeft = null;
+    this.onShootRight = null;
     this.onFinish = null;
     this.onExitToMenu = null;
   }
@@ -35,6 +45,8 @@ export class GameScene extends Phaser.Scene {
   init() {
     this.background = null;
     this.player = null;
+    this.leftShootZone = null;
+    this.rightShootZone = null;
     this.hud = null;
     this.instructions = null;
     this.scoreText = null;
@@ -46,6 +58,8 @@ export class GameScene extends Phaser.Scene {
     this.activePlates = [];
     this.onResize = null;
     this.onScore = null;
+    this.onShootLeft = null;
+    this.onShootRight = null;
     this.onFinish = null;
     this.onExitToMenu = null;
   }
@@ -53,6 +67,7 @@ export class GameScene extends Phaser.Scene {
   create() {
     this.createBackground();
     this.createPlayer();
+    this.createShootZones();
     this.createHud();
     this.registerSceneEvents();
     this.registerInput();
@@ -69,6 +84,18 @@ export class GameScene extends Phaser.Scene {
   createPlayer() {
     this.player = new PlayerPrefab(this, 0, 0, textureKeys.playerAimCenter);
     this.player.setDepth(1);
+  }
+
+  createShootZones() {
+    this.leftShootZone = this.createShootZone();
+    this.rightShootZone = this.createShootZone();
+  }
+
+  createShootZone() {
+    return this.add.rectangle(0, 0, SHOOT_ZONE_SIZE, SHOOT_ZONE_SIZE, 0xff4d4d, SHOOT_ZONE_ALPHA)
+      .setOrigin(0.5)
+      .setDepth(1.25)
+      .setStrokeStyle(2, 0xffc2c2, 1);
   }
 
   createHud() {
@@ -97,7 +124,7 @@ export class GameScene extends Phaser.Scene {
       color: '#dbe9f4'
     }).setOrigin(0.5);
 
-    this.instructions = this.add.text(0, 72, 'ESPACIO suma puntos · ENTER finaliza ronda · ESC vuelve al menu', {
+    this.instructions = this.add.text(0, 72, 'FLECHAS activan zonas · ESPACIO suma puntos · ENTER finaliza ronda · ESC vuelve al menu', {
       fontFamily: 'Trebuchet MS',
       fontSize: '16px',
       color: '#f5f1d6',
@@ -119,6 +146,14 @@ export class GameScene extends Phaser.Scene {
       this.updateHud();
     };
 
+    this.onShootLeft = () => {
+      this.activateShootZone(this.leftShootZone, textureKeys.playerAimLeft);
+    };
+
+    this.onShootRight = () => {
+      this.activateShootZone(this.rightShootZone, textureKeys.playerAimRight);
+    };
+
     this.onFinish = () => {
       this.finishRound();
     };
@@ -128,8 +163,28 @@ export class GameScene extends Phaser.Scene {
     };
 
     this.input.keyboard.on('keydown-SPACE', this.onScore);
+    this.input.keyboard.on('keydown-LEFT', this.onShootLeft);
+    this.input.keyboard.on('keydown-RIGHT', this.onShootRight);
     this.input.keyboard.on('keydown-ENTER', this.onFinish);
     this.input.keyboard.on('keydown-ESC', this.onExitToMenu);
+  }
+
+  activateShootZone(zone, textureKey) {
+    if (zone) {
+      this.tweens.killTweensOf(zone);
+      zone.setAlpha(SHOOT_ZONE_ALPHA);
+      zone.setScale(1.18);
+
+      this.tweens.add({
+        targets: zone,
+        scaleX: 1,
+        scaleY: 1,
+        duration: SHOT_RESET_DELAY,
+        ease: 'Sine.easeOut'
+      });
+    }
+
+    this.player?.playShot(textureKey, { resetDelay: SHOT_RESET_DELAY });
   }
 
   startRoundTimer() {
@@ -184,10 +239,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time, delta) {
-    if (this.activePlates.length === 0) {
-      return;
-    }
-
     const deltaSeconds = delta / 1000;
 
     for (let index = this.activePlates.length - 1; index >= 0; index -= 1) {
@@ -201,6 +252,58 @@ export class GameScene extends Phaser.Scene {
 
       this.destroyPlateAt(index);
     }
+
+    this.updateShootZoneTracking();
+  }
+
+  updateShootZoneTracking() {
+    if (!this.leftShootZone || !this.rightShootZone) {
+      return;
+    }
+
+    const homeY = this.getShootZoneHomeY();
+
+    if (this.activePlates.length === 0) {
+      this.leftShootZone.y = homeY;
+      this.rightShootZone.y = homeY;
+      return;
+    }
+
+    const leftPlate = this.getClosestPlateForZone(this.leftShootZone);
+    const rightPlate = this.getClosestPlateForZone(this.rightShootZone);
+
+    this.leftShootZone.y = leftPlate ? this.getClampedShootZoneY(leftPlate.y) : homeY;
+    this.rightShootZone.y = rightPlate ? this.getClampedShootZoneY(rightPlate.y) : homeY;
+  }
+
+  getClosestPlateForZone(zone) {
+    if (!zone) {
+      return null;
+    }
+
+    return this.activePlates.reduce((closestPlate, plate) => {
+      if (!closestPlate) {
+        return plate;
+      }
+
+      const currentDistance = Math.abs(plate.x - zone.x);
+      const closestDistance = Math.abs(closestPlate.x - zone.x);
+
+      if (currentDistance < closestDistance) {
+        return plate;
+      }
+
+      return closestPlate;
+    }, null);
+  }
+
+  getShootZoneHomeY() {
+    return this.scale.height * SHOOT_ZONE_Y_RATIO;
+  }
+
+  getClampedShootZoneY(targetY) {
+    const halfSize = SHOOT_ZONE_SIZE * 0.5;
+    return Phaser.Math.Clamp(targetY, halfSize, this.scale.height - halfSize);
   }
 
   destroyPlateAt(index) {
@@ -248,6 +351,14 @@ export class GameScene extends Phaser.Scene {
     if (this.player) {
       this.player.resizeToCover(width, height);
     }
+
+    if (this.leftShootZone) {
+      this.leftShootZone.setPosition(width * SHOOT_ZONE_LEFT_X_RATIO, this.getShootZoneHomeY());
+    }
+
+    if (this.rightShootZone) {
+      this.rightShootZone.setPosition(width * SHOOT_ZONE_RIGHT_X_RATIO, this.getShootZoneHomeY());
+    }
   }
 
   handleShutdown() {
@@ -261,6 +372,16 @@ export class GameScene extends Phaser.Scene {
     if (this.onScore) {
       this.input.keyboard.off('keydown-SPACE', this.onScore);
       this.onScore = null;
+    }
+
+    if (this.onShootLeft) {
+      this.input.keyboard.off('keydown-LEFT', this.onShootLeft);
+      this.onShootLeft = null;
+    }
+
+    if (this.onShootRight) {
+      this.input.keyboard.off('keydown-RIGHT', this.onShootRight);
+      this.onShootRight = null;
     }
 
     if (this.onFinish) {
