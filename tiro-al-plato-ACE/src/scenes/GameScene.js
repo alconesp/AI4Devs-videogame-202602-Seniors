@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { textureKeys } from '../assets/manifest.js';
+import { BrokenPlateEffect } from '../prefabs/BrokenPlateEffect.js';
 import { PlatePrefab } from '../prefabs/PlatePrefab.js';
 import { PlayerPrefab } from '../prefabs/PlayerPrefab.js';
 import { sceneKeys } from './sceneKeys.js';
@@ -17,6 +18,8 @@ const SHOOT_ZONE_Y_RATIO = 0.72;
 const SHOOT_ZONE_LEFT_X_RATIO = 0.39;
 const SHOOT_ZONE_RIGHT_X_RATIO = 0.61;
 const SHOT_RESET_DELAY = 180;
+const HIT_SCORE = 100;
+const SHOT_FEEDBACK_DURATION = 650;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -29,13 +32,16 @@ export class GameScene extends Phaser.Scene {
     this.instructions = null;
     this.scoreText = null;
     this.statusText = null;
+    this.feedbackText = null;
     this.score = 0;
+    this.hits = 0;
+    this.misses = 0;
     this.elapsedSeconds = 0;
     this.roundTimer = null;
     this.plateSpawnTimer = null;
+    this.feedbackTimer = null;
     this.activePlates = [];
     this.onResize = null;
-    this.onScore = null;
     this.onShootLeft = null;
     this.onShootRight = null;
     this.onFinish = null;
@@ -51,13 +57,16 @@ export class GameScene extends Phaser.Scene {
     this.instructions = null;
     this.scoreText = null;
     this.statusText = null;
+    this.feedbackText = null;
     this.score = 0;
+    this.hits = 0;
+    this.misses = 0;
     this.elapsedSeconds = 0;
     this.roundTimer = null;
     this.plateSpawnTimer = null;
+    this.feedbackTimer = null;
     this.activePlates = [];
     this.onResize = null;
-    this.onScore = null;
     this.onShootLeft = null;
     this.onShootRight = null;
     this.onFinish = null;
@@ -101,7 +110,7 @@ export class GameScene extends Phaser.Scene {
   createHud() {
     this.hud = this.add.container(0, 0).setDepth(2);
 
-    const panel = this.add.rectangle(0, 0, 560, 220, 0x102236, 0.82)
+    const panel = this.add.rectangle(0, 0, 560, 248, 0x102236, 0.82)
       .setOrigin(0.5)
       .setStrokeStyle(2, 0xf5f1d6, 0.8);
 
@@ -124,14 +133,21 @@ export class GameScene extends Phaser.Scene {
       color: '#dbe9f4'
     }).setOrigin(0.5);
 
-    this.instructions = this.add.text(0, 72, 'FLECHAS activan zonas · ESPACIO suma puntos · ENTER finaliza ronda · ESC vuelve al menu', {
+    this.feedbackText = this.add.text(0, 56, 'Rompe los platos dentro del cuadrado rojo', {
       fontFamily: 'Trebuchet MS',
-      fontSize: '16px',
+      fontSize: '18px',
+      fontStyle: 'bold',
+      color: '#f5f1d6'
+    }).setOrigin(0.5);
+
+    this.instructions = this.add.text(0, 92, 'FLECHA IZQ o DER rompe el plato al entrar en su cuadrado · ENTER finaliza ronda · ESC vuelve al menu', {
+      fontFamily: 'Trebuchet MS',
+      fontSize: '15px',
       color: '#f5f1d6',
       align: 'center'
     }).setOrigin(0.5);
 
-    this.hud.add([panel, title, this.scoreText, this.statusText, this.instructions]);
+    this.hud.add([panel, title, this.scoreText, this.statusText, this.feedbackText, this.instructions]);
   }
 
   registerSceneEvents() {
@@ -141,17 +157,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   registerInput() {
-    this.onScore = () => {
-      this.score += 10;
-      this.updateHud();
-    };
-
     this.onShootLeft = () => {
-      this.activateShootZone(this.leftShootZone, textureKeys.playerAimLeft);
+      this.handleShot(this.leftShootZone, textureKeys.playerAimLeft);
     };
 
     this.onShootRight = () => {
-      this.activateShootZone(this.rightShootZone, textureKeys.playerAimRight);
+      this.handleShot(this.rightShootZone, textureKeys.playerAimRight);
     };
 
     this.onFinish = () => {
@@ -162,11 +173,23 @@ export class GameScene extends Phaser.Scene {
       this.scene.start(sceneKeys.mainMenu);
     };
 
-    this.input.keyboard.on('keydown-SPACE', this.onScore);
     this.input.keyboard.on('keydown-LEFT', this.onShootLeft);
     this.input.keyboard.on('keydown-RIGHT', this.onShootRight);
     this.input.keyboard.on('keydown-ENTER', this.onFinish);
     this.input.keyboard.on('keydown-ESC', this.onExitToMenu);
+  }
+
+  handleShot(zone, textureKey) {
+    this.activateShootZone(zone, textureKey);
+
+    const hitPlateIndex = this.findHittablePlateIndex(zone);
+
+    if (hitPlateIndex >= 0) {
+      this.registerHit(hitPlateIndex);
+      return;
+    }
+
+    this.setFeedback('Fuera de tiempo', '#ffd2a6');
   }
 
   activateShootZone(zone, textureKey) {
@@ -185,6 +208,32 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.player?.playShot(textureKey, { resetDelay: SHOT_RESET_DELAY });
+  }
+
+  findHittablePlateIndex(zone) {
+    if (!zone) {
+      return -1;
+    }
+
+    let closestIndex = -1;
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    for (let index = 0; index < this.activePlates.length; index += 1) {
+      const plate = this.activePlates[index];
+
+      if (plate.wasHit || !this.doesPlateOverlapZone(plate, zone)) {
+        continue;
+      }
+
+      const distance = Math.abs(plate.x - zone.x);
+
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestIndex = index;
+      }
+    }
+
+    return closestIndex;
   }
 
   startRoundTimer() {
@@ -245,6 +294,14 @@ export class GameScene extends Phaser.Scene {
       const plate = this.activePlates[index];
 
       plate.advance(deltaSeconds);
+    }
+
+    this.updateShootZoneTracking();
+
+    for (let index = this.activePlates.length - 1; index >= 0; index -= 1) {
+      const plate = this.activePlates[index];
+
+      this.updatePlateShotWindow(plate);
 
       if (!plate.hasExitedLeftBoundary()) {
         continue;
@@ -252,8 +309,19 @@ export class GameScene extends Phaser.Scene {
 
       this.destroyPlateAt(index);
     }
+  }
 
-    this.updateShootZoneTracking();
+  updatePlateShotWindow(plate) {
+    const isInsideShootZone = this.isPlateInsideAnyShootZone(plate);
+
+    if (isInsideShootZone) {
+      plate.markShootZoneEntry();
+      return;
+    }
+
+    if (plate.wasInShootZone && !plate.hasRegisteredMiss && !plate.wasHit) {
+      this.registerMiss(plate);
+    }
   }
 
   updateShootZoneTracking() {
@@ -311,6 +379,73 @@ export class GameScene extends Phaser.Scene {
     plate?.destroy();
   }
 
+  isPlateInsideAnyShootZone(plate) {
+    return this.doesPlateOverlapZone(plate, this.leftShootZone)
+      || this.doesPlateOverlapZone(plate, this.rightShootZone);
+  }
+
+  doesPlateOverlapZone(plate, zone) {
+    if (!plate || !zone) {
+      return false;
+    }
+
+    const zoneBounds = new Phaser.Geom.Rectangle(
+      zone.x - (zone.displayWidth * 0.5),
+      zone.y - (zone.displayHeight * 0.5),
+      zone.displayWidth,
+      zone.displayHeight
+    );
+
+    return Phaser.Geom.Intersects.RectangleToRectangle(plate.getBoundsRect(), zoneBounds);
+  }
+
+  registerHit(index) {
+    const plate = this.activePlates[index];
+
+    if (!plate) {
+      return;
+    }
+
+    plate.markHit();
+    this.score += HIT_SCORE;
+    this.hits += 1;
+    this.spawnBrokenPlateEffect(plate.x, plate.y);
+    this.setFeedback('Acierto +100', '#a7efb0');
+    this.updateHud();
+    this.destroyPlateAt(index);
+  }
+
+  registerMiss(plate) {
+    plate.markMissRegistered();
+    this.misses += 1;
+    this.setFeedback('Fallo', '#ffb6b6');
+    this.updateHud();
+  }
+
+  spawnBrokenPlateEffect(x, y) {
+    const effect = new BrokenPlateEffect(this, x, y);
+    effect.setDepth(1.75);
+  }
+
+  setFeedback(message, color) {
+    if (!this.feedbackText) {
+      return;
+    }
+
+    this.feedbackText.setText(message);
+    this.feedbackText.setColor(color);
+
+    if (this.feedbackTimer) {
+      this.feedbackTimer.remove(false);
+    }
+
+    this.feedbackTimer = this.time.delayedCall(SHOT_FEEDBACK_DURATION, () => {
+      this.feedbackText?.setText('Rompe los platos dentro del cuadrado rojo');
+      this.feedbackText?.setColor('#f5f1d6');
+      this.feedbackTimer = null;
+    });
+  }
+
   destroyAllPlates() {
     this.activePlates.forEach((plate) => plate.destroy());
     this.activePlates = [];
@@ -319,9 +454,13 @@ export class GameScene extends Phaser.Scene {
   finishRound() {
     this.registry.set('lastScore', this.score);
     this.registry.set('lastDuration', this.elapsedSeconds);
+    this.registry.set('lastHits', this.hits);
+    this.registry.set('lastMisses', this.misses);
     this.scene.start(sceneKeys.scores, {
       score: this.score,
-      duration: this.elapsedSeconds
+      duration: this.elapsedSeconds,
+      hits: this.hits,
+      misses: this.misses
     });
   }
 
@@ -331,7 +470,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.statusText) {
-      this.statusText.setText(`Tiempo activo: ${this.elapsedSeconds}s`);
+      this.statusText.setText(`Tiempo: ${this.elapsedSeconds}s · Aciertos: ${this.hits} · Fallos: ${this.misses}`);
     }
   }
 
@@ -369,11 +508,6 @@ export class GameScene extends Phaser.Scene {
       this.onResize = null;
     }
 
-    if (this.onScore) {
-      this.input.keyboard.off('keydown-SPACE', this.onScore);
-      this.onScore = null;
-    }
-
     if (this.onShootLeft) {
       this.input.keyboard.off('keydown-LEFT', this.onShootLeft);
       this.onShootLeft = null;
@@ -402,6 +536,11 @@ export class GameScene extends Phaser.Scene {
     if (this.plateSpawnTimer) {
       this.plateSpawnTimer.remove(false);
       this.plateSpawnTimer = null;
+    }
+
+    if (this.feedbackTimer) {
+      this.feedbackTimer.remove(false);
+      this.feedbackTimer = null;
     }
 
     this.destroyAllPlates();

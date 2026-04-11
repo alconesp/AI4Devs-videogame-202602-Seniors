@@ -13,6 +13,9 @@ export class PlatePrefab extends Phaser.GameObjects.Container {
     this.travelDuration = config.travelDuration ?? 1;
     this.elapsedTravel = 0;
     this.launchAngle = config.launchAngle ?? 0;
+    this.wasInShootZone = false;
+    this.hasRegisteredMiss = false;
+    this.wasHit = false;
 
     if (config.scale !== undefined) {
       this.plateImage.setScale(config.scale);
@@ -40,5 +43,29 @@ export class PlatePrefab extends Phaser.GameObjects.Container {
     const halfWidth = this.plateImage.displayWidth * 0.5;
 
     return this.x < -halfWidth;
+  }
+
+  getBoundsRect() {
+    const width = this.plateImage.displayWidth;
+    const height = this.plateImage.displayHeight;
+
+    return new Phaser.Geom.Rectangle(
+      this.x - (width * 0.5),
+      this.y - (height * 0.5),
+      width,
+      height
+    );
+  }
+
+  markShootZoneEntry() {
+    this.wasInShootZone = true;
+  }
+
+  markMissRegistered() {
+    this.hasRegisteredMiss = true;
+  }
+
+  markHit() {
+    this.wasHit = true;
   }
 }

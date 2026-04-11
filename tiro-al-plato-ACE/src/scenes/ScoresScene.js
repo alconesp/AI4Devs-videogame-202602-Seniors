@@ -10,6 +10,8 @@ export class ScoresScene extends Phaser.Scene {
     this.onResize = null;
     this.score = 0;
     this.duration = 0;
+    this.hits = 0;
+    this.misses = 0;
   }
 
   init(data) {
@@ -18,12 +20,14 @@ export class ScoresScene extends Phaser.Scene {
     this.onResize = null;
     this.score = data?.score ?? this.registry.get('lastScore') ?? 0;
     this.duration = data?.duration ?? this.registry.get('lastDuration') ?? 0;
+    this.hits = data?.hits ?? this.registry.get('lastHits') ?? 0;
+    this.misses = data?.misses ?? this.registry.get('lastMisses') ?? 0;
   }
 
   create() {
     this.background = this.add.image(0, 0, textureKeys.background).setOrigin(0.5);
 
-    const panel = this.add.rectangle(0, 0, 540, 280, 0x102236, 0.84)
+    const panel = this.add.rectangle(0, 0, 540, 320, 0x102236, 0.84)
       .setStrokeStyle(2, 0xf5f1d6, 0.85);
 
     const title = this.add.text(0, -82, 'Puntuaciones', {
@@ -40,19 +44,26 @@ export class ScoresScene extends Phaser.Scene {
       align: 'center'
     }).setOrigin(0.5);
 
+    const stats = this.add.text(0, 26, `Aciertos: ${this.hits} · Fallos: ${this.misses}`, {
+      fontFamily: 'Trebuchet MS',
+      fontSize: '20px',
+      color: '#dbe9f4',
+      align: 'center'
+    }).setOrigin(0.5);
+
     const replayButton = this.createButton('Jugar otra vez', () => {
       this.scene.start(sceneKeys.preloader, {
         nextScene: sceneKeys.game
       });
     });
-    replayButton.setY(54);
+    replayButton.setY(78);
 
     const menuButton = this.createButton('Volver al menu', () => {
       this.scene.start(sceneKeys.mainMenu);
     });
-    menuButton.setY(114);
+    menuButton.setY(138);
 
-    this.layout = this.add.container(0, 0, [panel, title, summary, replayButton, menuButton]);
+    this.layout = this.add.container(0, 0, [panel, title, summary, stats, replayButton, menuButton]);
 
     this.onResize = this.handleResize.bind(this);
     this.scale.on('resize', this.onResize);
