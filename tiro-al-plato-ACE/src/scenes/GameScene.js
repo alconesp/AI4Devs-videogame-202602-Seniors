@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { textureKeys } from '../assets/manifest.js';
+import { saveRankingEntry } from '../game/rankingStorage.js';
 import { BonusShipPrefab } from '../prefabs/BonusShipPrefab.js';
 import { BrokenPlateEffect } from '../prefabs/BrokenPlateEffect.js';
 import { PlatePrefab } from '../prefabs/PlatePrefab.js';
@@ -816,12 +817,22 @@ export class GameScene extends Phaser.Scene {
 
     const bestScore = this.registry.get('bestScore');
     const shouldUpdateBestScore = typeof bestScore !== 'number' || this.score > bestScore;
+    const hasRoundActivity = this.score > 0 || this.hits > 0 || this.misses > 0 || this.elapsedSeconds > 0;
 
     this.roundEnding = true;
     this.registry.set('lastScore', this.score);
     this.registry.set('lastDuration', this.elapsedSeconds);
     this.registry.set('lastHits', this.hits);
     this.registry.set('lastMisses', this.misses);
+
+    if (hasRoundActivity) {
+      saveRankingEntry({
+        score: this.score,
+        duration: this.elapsedSeconds,
+        hits: this.hits,
+        misses: this.misses
+      });
+    }
 
     if (shouldUpdateBestScore) {
       this.registry.set('bestScore', this.score);

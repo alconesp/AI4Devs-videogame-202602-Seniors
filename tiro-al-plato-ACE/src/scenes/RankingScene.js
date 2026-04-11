@@ -1,6 +1,12 @@
 import Phaser from 'phaser';
 import { textureKeys } from '../assets/manifest.js';
+import { MAX_RANKING_ENTRIES, getStoredRankingEntries } from '../game/rankingStorage.js';
 import { sceneKeys } from './sceneKeys.js';
+
+const PANEL_WIDTH = 620;
+const PANEL_HEIGHT = 560;
+const ROW_HEIGHT = 48;
+const ROW_START_Y = -64;
 
 export class RankingScene extends Phaser.Scene {
   constructor() {
@@ -8,28 +14,14 @@ export class RankingScene extends Phaser.Scene {
     this.background = null;
     this.layout = null;
     this.onResize = null;
-    this.bestScore = 0;
-    this.bestDuration = 0;
-    this.bestHits = 0;
-    this.bestMisses = 0;
-    this.lastScore = 0;
-    this.lastDuration = 0;
-    this.lastHits = 0;
-    this.lastMisses = 0;
+    this.rankingEntries = [];
   }
 
   init() {
     this.background = null;
     this.layout = null;
     this.onResize = null;
-    this.bestScore = this.registry.get('bestScore') ?? 0;
-    this.bestDuration = this.registry.get('bestDuration') ?? 0;
-    this.bestHits = this.registry.get('bestHits') ?? 0;
-    this.bestMisses = this.registry.get('bestMisses') ?? 0;
-    this.lastScore = this.registry.get('lastScore') ?? 0;
-    this.lastDuration = this.registry.get('lastDuration') ?? 0;
-    this.lastHits = this.registry.get('lastHits') ?? 0;
-    this.lastMisses = this.registry.get('lastMisses') ?? 0;
+    this.rankingEntries = getStoredRankingEntries();
   }
 
   create() {
@@ -47,67 +39,124 @@ export class RankingScene extends Phaser.Scene {
   }
 
   createOverlay() {
-    const panel = this.add.rectangle(0, 0, 560, 360, 0x102236, 0.84)
+    const outerGlow = this.add.rectangle(0, 0, PANEL_WIDTH + 36, PANEL_HEIGHT + 36, 0x09131f, 0.44)
+      .setStrokeStyle(2, 0x36597a, 0.52);
+
+    const panel = this.add.rectangle(0, 0, PANEL_WIDTH, PANEL_HEIGHT, 0x102236, 0.84)
       .setStrokeStyle(2, 0xf5f1d6, 0.88);
 
-    const accent = this.add.rectangle(0, -146, 478, 30, 0xe5b75c, 0.12)
+    const accent = this.add.rectangle(0, -208, 500, 34, 0xe5b75c, 0.12)
       .setStrokeStyle(1, 0xe5b75c, 0.42);
 
-    const title = this.add.text(0, -146, 'Ranking', {
+    const title = this.add.text(0, -208, 'Ranking', {
       fontFamily: 'Trebuchet MS',
       fontSize: '36px',
       fontStyle: 'bold',
       color: '#f5f1d6'
     }).setOrigin(0.5);
 
-    const intro = this.add.text(0, -104, this.getIntroText(), {
+    const subtitle = this.add.text(0, -164, this.getSubtitle(), {
       fontFamily: 'Trebuchet MS',
       fontSize: '18px',
       color: '#ffffff',
       align: 'center',
-      wordWrap: { width: 440 }
+      wordWrap: { width: 470 }
     }).setOrigin(0.5);
 
-    const bestSummary = this.add.text(0, -28, this.getBestSummary(), {
-      fontFamily: 'Trebuchet MS',
-      fontSize: '20px',
-      fontStyle: 'bold',
-      color: '#f5f1d6',
-      align: 'center',
-      wordWrap: { width: 450 }
-    }).setOrigin(0.5);
+    const headerRow = this.add.container(0, -118, [
+      this.add.rectangle(0, 0, 500, 34, 0xe5b75c, 0.16)
+        .setStrokeStyle(1, 0xe5b75c, 0.3),
+      this.add.text(-208, 0, '#', {
+        fontFamily: 'Trebuchet MS',
+        fontSize: '18px',
+        fontStyle: 'bold',
+        color: '#f5f1d6'
+      }).setOrigin(0.5),
+      this.add.text(-116, 0, 'Jugador', {
+        fontFamily: 'Trebuchet MS',
+        fontSize: '18px',
+        fontStyle: 'bold',
+        color: '#f5f1d6'
+      }).setOrigin(0.5),
+      this.add.text(80, 0, 'Puntos', {
+        fontFamily: 'Trebuchet MS',
+        fontSize: '18px',
+        fontStyle: 'bold',
+        color: '#f5f1d6'
+      }).setOrigin(0.5),
+      this.add.text(202, 0, 'Tiempo', {
+        fontFamily: 'Trebuchet MS',
+        fontSize: '18px',
+        fontStyle: 'bold',
+        color: '#f5f1d6'
+      }).setOrigin(0.5)
+    ]);
 
-    const bestStats = this.add.text(0, 28, this.getBestStats(), {
-      fontFamily: 'Trebuchet MS',
-      fontSize: '18px',
-      color: '#dbe9f4',
-      align: 'center',
-      wordWrap: { width: 440 }
-    }).setOrigin(0.5);
+    const rows = this.createRankingRows();
 
-    const lastRound = this.add.text(0, 94, this.getLastRoundSummary(), {
+    const footer = this.add.text(0, 188, this.getFooterText(), {
       fontFamily: 'Trebuchet MS',
       fontSize: '17px',
-      color: '#ffffff',
+      color: '#dbe9f4',
       align: 'center',
-      wordWrap: { width: 440 }
+      wordWrap: { width: 470 }
     }).setOrigin(0.5);
 
     const menuButton = this.createButton('Volver al menu', () => {
       this.scene.start(sceneKeys.mainMenu);
     });
-    menuButton.setY(152);
+    menuButton.setY(232);
 
     this.layout = this.add.container(0, 0, [
+      outerGlow,
       panel,
       accent,
       title,
-      intro,
-      bestSummary,
-      bestStats,
-      lastRound,
+      subtitle,
+      headerRow,
+      ...rows,
+      footer,
       menuButton
     ]);
+  }
+
+  createRankingRows() {
+    const visibleEntries = this.getVisibleEntries();
+
+    return visibleEntries.map((entry, index) => {
+      const y = ROW_START_Y + (index * ROW_HEIGHT);
+      const rowTint = index % 2 === 0 ? 0x132b44 : 0x0f2233;
+      const rowAlpha = entry.isPlaceholder ? 0.3 : 0.62;
+      const textColor = entry.isPlaceholder ? '#d0d7de' : '#ffffff';
+
+      return this.add.container(0, y, [
+        this.add.rectangle(0, 0, 500, 38, rowTint, rowAlpha)
+          .setStrokeStyle(1, 0xf5f1d6, entry.isPlaceholder ? 0.18 : 0.24),
+        this.add.text(-208, 0, `${index + 1}`, {
+          fontFamily: 'Trebuchet MS',
+          fontSize: '20px',
+          fontStyle: 'bold',
+          color: '#f5f1d6'
+        }).setOrigin(0.5),
+        this.add.text(-116, 0, entry.initials, {
+          fontFamily: 'Trebuchet MS',
+          fontSize: '20px',
+          fontStyle: 'bold',
+          color: textColor
+        }).setOrigin(0.5),
+        this.add.text(80, 0, this.formatScore(entry.score), {
+          fontFamily: 'Trebuchet MS',
+          fontSize: '20px',
+          fontStyle: 'bold',
+          color: textColor
+        }).setOrigin(0.5),
+        this.add.text(202, 0, this.formatDuration(entry.duration), {
+          fontFamily: 'Trebuchet MS',
+          fontSize: '18px',
+          color: entry.isPlaceholder ? '#c9d3dc' : '#dbe9f4'
+        }).setOrigin(0.5)
+      ]);
+    });
   }
 
   createButton(label, onClick) {
@@ -129,46 +178,51 @@ export class RankingScene extends Phaser.Scene {
     return this.add.container(0, 0, [background, text]);
   }
 
-  getIntroText() {
-    if (this.bestScore > 0) {
-      return 'Consulta la mejor marca de la sesion y compite contra tu ultima ronda.';
+  getVisibleEntries() {
+    const filledEntries = this.rankingEntries.slice(0, MAX_RANKING_ENTRIES).map((entry) => ({
+      ...entry,
+      isPlaceholder: false
+    }));
+
+    while (filledEntries.length < MAX_RANKING_ENTRIES) {
+      filledEntries.push({
+        initials: 'AAA',
+        score: 0,
+        duration: 0,
+        isPlaceholder: true
+      });
     }
 
-    return 'Aun no hay rondas registradas. Empieza una nueva partida para llenar este ranking.';
+    return filledEntries;
   }
 
-  getBestSummary() {
-    if (this.bestScore > 0) {
-      return `Mejor puntuacion: ${this.bestScore} puntos en ${this.bestDuration}s`;
+  getSubtitle() {
+    if (this.rankingEntries.length > 0) {
+      return 'Tus mejores rondas quedan registradas aqui para que puedas perseguir el siguiente record.';
     }
 
-    return 'Mejor puntuacion: pendiente';
+    return 'Aun no hay datos guardados. Tus futuros records apareceran en este panel.';
   }
 
-  getBestStats() {
-    if (this.bestScore > 0) {
-      return `Aciertos: ${this.bestHits} · Fallos: ${this.bestMisses} · Precision: ${this.getAccuracy(this.bestHits, this.bestMisses)}%`;
+  getFooterText() {
+    if (this.rankingEntries.length > 0) {
+      const bestEntry = this.rankingEntries[0];
+      return `Mejor marca actual: ${bestEntry.initials} - ${this.formatScore(bestEntry.score)} en ${this.formatDuration(bestEntry.duration)}`;
     }
 
-    return 'Todavia no hay estadisticas disponibles para esta sesion.';
+    return 'La tabla muestra placeholders hasta que completes tu primera ronda.';
   }
 
-  getLastRoundSummary() {
-    if (this.lastScore > 0 || this.lastHits > 0 || this.lastMisses > 0) {
-      return `Ultima ronda: ${this.lastScore} puntos · ${this.lastHits} aciertos · ${this.lastMisses} fallos · ${this.lastDuration}s`;
-    }
-
-    return 'Ultima ronda: aun sin datos registrados.';
+  formatScore(score) {
+    return String(Math.max(0, score)).padStart(3, '0');
   }
 
-  getAccuracy(hits, misses) {
-    const totalShots = hits + misses;
-
-    if (totalShots === 0) {
-      return 0;
+  formatDuration(duration) {
+    if (!duration) {
+      return '-- s';
     }
 
-    return Math.round((hits / totalShots) * 100);
+    return `${duration}s`;
   }
 
   handleResize(gameSize) {
