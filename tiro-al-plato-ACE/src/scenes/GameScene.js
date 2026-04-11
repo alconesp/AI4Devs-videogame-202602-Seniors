@@ -34,6 +34,11 @@ const SCREEN_FLASH_DURATION = 50;
 const SCREEN_FLASH_ALPHA = 0.2;
 const MUZZLE_FLASH_DURATION = 80;
 const MUZZLE_FLASH_ALPHA = 0.94;
+const STANDARD_SHAKE_DURATION = 80;
+const STANDARD_SHAKE_INTENSITY = 0.003;
+const CRITICAL_SHAKE_DURATION = STANDARD_SHAKE_DURATION * 2;
+const CRITICAL_SHAKE_INTENSITY = STANDARD_SHAKE_INTENSITY * 2;
+const HUD_CAMERA_NAME = 'GameHudCamera';
 const HUD_TOP_MARGIN = 28;
 const HUD_WIDTH_MIN = 340;
 const HUD_WIDTH_MAX = 560;
@@ -80,6 +85,7 @@ export class GameScene extends Phaser.Scene {
     this.leftShootZone = null;
     this.rightShootZone = null;
     this.hud = null;
+    this.uiCamera = null;
     this.hudPanel = null;
     this.scoreText = null;
     this.plateText = null;
@@ -118,6 +124,7 @@ export class GameScene extends Phaser.Scene {
     this.leftShootZone = null;
     this.rightShootZone = null;
     this.hud = null;
+    this.uiCamera = null;
     this.hudPanel = null;
     this.scoreText = null;
     this.plateText = null;
@@ -157,6 +164,7 @@ export class GameScene extends Phaser.Scene {
     this.createShootZones();
     this.createShotEffects();
     this.createHud();
+    this.createCameras();
     this.registerSceneEvents();
     this.registerInput();
     this.audioController.startMusicLoop();
@@ -247,6 +255,41 @@ export class GameScene extends Phaser.Scene {
     this.hud.add([this.hudPanel, this.scoreText, this.plateText, this.feedbackText]);
   }
 
+  createCameras() {
+    const existingHudCamera = this.cameras.getCamera(HUD_CAMERA_NAME);
+
+    if (existingHudCamera) {
+      this.cameras.remove(existingHudCamera);
+    }
+
+    this.uiCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height, false, HUD_CAMERA_NAME);
+    this.uiCamera.ignore([
+      this.background,
+      this.player,
+      this.leftShootZone,
+      this.rightShootZone,
+      this.screenFlash,
+      this.muzzleFlash,
+      this.timerText
+    ]);
+
+    this.cameras.main.ignore([
+      this.hud,
+      this.hudPanel,
+      this.scoreText,
+      this.plateText,
+      this.feedbackText
+    ]);
+  }
+
+  ignoreFromHudCamera(gameObject) {
+    if (!this.uiCamera || !gameObject) {
+      return;
+    }
+
+    this.uiCamera.ignore(gameObject);
+  }
+
   registerSceneEvents() {
     this.onResize = this.handleResize.bind(this);
     this.scale.on('resize', this.onResize);
@@ -278,6 +321,7 @@ export class GameScene extends Phaser.Scene {
 
   handleShot(zone, textureKey) {
     this.activateShootZone(zone, textureKey);
+    this.playStandardCameraShake();
 
     const hitTargetIndex = this.findHittableTargetIndex(zone);
 
@@ -314,6 +358,18 @@ export class GameScene extends Phaser.Scene {
   playShotEffects(textureKey) {
     this.playMuzzleFlash(textureKey);
     this.playScreenFlash();
+  }
+
+  playStandardCameraShake() {
+    this.shakeGameplayCamera(STANDARD_SHAKE_DURATION, STANDARD_SHAKE_INTENSITY);
+  }
+
+  playCriticalCameraShake() {
+    this.shakeGameplayCamera(CRITICAL_SHAKE_DURATION, CRITICAL_SHAKE_INTENSITY);
+  }
+
+  shakeGameplayCamera(duration, intensity) {
+    this.cameras.main?.shake(duration, intensity, true);
   }
 
   playMuzzleFlash(textureKey) {
@@ -505,7 +561,8 @@ export class GameScene extends Phaser.Scene {
         targetLabel: `Plato ${specialPlate.name}`,
         feedbackMessage: `Plato ${specialPlate.name} +${specialPlate.score}`,
         feedbackColor: specialPlate.feedbackColor,
-        isSpecialPlate: true
+        isSpecialPlate: true,
+        isCriticalTarget: specialPlate.name === 'verde'
       }));
     } else {
       this.specialPlatesSpawned = 0;
@@ -574,8 +631,11 @@ export class GameScene extends Phaser.Scene {
     plate.modifiesDifficulty = config.modifiesDifficulty ?? true;
     plate.isRightPlate = config.isRightPlate ?? false;
     plate.isSpecialPlate = config.isSpecialPlate ?? false;
+    plate.isCriticalTarget = config.isCriticalTarget ?? false;
     plate.isFinalShip = false;
     plate.usesRoundSpeedMultiplier = true;
+
+    this.ignoreFromHudCamera(plate);
 
     return plate;
   }
@@ -629,9 +689,11 @@ export class GameScene extends Phaser.Scene {
     ship.countsTowardHits = false;
     ship.modifiesDifficulty = false;
     ship.isRightPlate = false;
+    ship.isCriticalTarget = true;
     ship.isFinalShip = true;
     ship.usesRoundSpeedMultiplier = false;
 
+    this.ignoreFromHudCamera(ship);
     this.finalShipSpawned = true;
     this.activeTargets.push(ship);
     this.setFeedback('Nave final en el cielo', '#ffe4a6');
@@ -807,6 +869,10 @@ export class GameScene extends Phaser.Scene {
       this.audioController?.playImpact();
     }
 
+    if (target.isCriticalTarget) {
+      this.playCriticalCameraShake();
+    }
+
     this.spawnBrokenPlateEffect(target.x, target.y, target.fragmentPalette);
     this.setFeedback(target.feedbackMessage, target.feedbackColor);
     this.updateHud();
@@ -896,6 +962,7 @@ export class GameScene extends Phaser.Scene {
   spawnBrokenPlateEffect(x, y, fragmentPalette = DEFAULT_PLATE_FRAGMENT_PALETTE) {
     const effect = new BrokenPlateEffect(this, x, y, { fragmentPalette });
     effect.setDepth(1.75);
+    this.ignoreFromHudCamera(effect);
   }
 
   setFeedback(message, color) {
@@ -967,6 +1034,11 @@ export class GameScene extends Phaser.Scene {
 
   handleResize(gameSize) {
     const { width, height } = gameSize;
+
+    if (this.uiCamera) {
+      this.uiCamera.setViewport(0, 0, width, height);
+      this.uiCamera.setSize(width, height);
+    }
 
     if (this.background?.texture) {
       const scale = Math.max(width / this.background.width, height / this.background.height);
@@ -1068,6 +1140,11 @@ export class GameScene extends Phaser.Scene {
       this.tweens.killTweensOf(this.muzzleFlash);
       this.muzzleFlash.destroy();
       this.muzzleFlash = null;
+    }
+
+    if (this.uiCamera) {
+      this.cameras.remove(this.uiCamera);
+      this.uiCamera = null;
     }
 
     this.destroyAllTargets();

@@ -215,7 +215,7 @@ export class MainMenuScene extends Phaser.Scene {
     this.audioMuteButton.setPosition(-122, 272);
     this.audioMuteButtonLabel = this.audioMuteButton.list[1];
 
-    const backButton = this.createAudioButton('Volver al menu', () => {
+    const backButton = this.createAudioButton('Volver al menú', () => {
       this.showMainMenuView();
     }, 198);
     backButton.setPosition(112, 272);

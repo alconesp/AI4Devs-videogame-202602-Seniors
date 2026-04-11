@@ -83,7 +83,7 @@ export class ControlsScene extends Phaser.Scene {
       wordWrap: { width: 470 }
     }).setOrigin(0.5);
 
-    const menuButton = this.createButton('Atrás', () => {
+    const menuButton = this.createButton('Volver al menú', () => {
       this.scene.start(sceneKeys.mainMenu);
     });
     menuButton.setY(198);

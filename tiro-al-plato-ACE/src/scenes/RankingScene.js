@@ -109,7 +109,7 @@ export class RankingScene extends Phaser.Scene {
       wordWrap: { width: 470 }
     }).setOrigin(0.5);
 
-    const menuButton = this.createButton('Volver al menu', () => {
+    const menuButton = this.createButton('Volver al menú', () => {
       this.scene.start(sceneKeys.mainMenu);
     });
     menuButton.setY(336);

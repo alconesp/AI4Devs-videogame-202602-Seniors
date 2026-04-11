@@ -118,7 +118,7 @@ export class ScoresScene extends Phaser.Scene {
     });
     replayButton.setY(144);
 
-    const menuButton = this.createButton('Volver al menu', () => {
+    const menuButton = this.createButton('Volver al menú', () => {
       this.scene.start(sceneKeys.mainMenu);
     });
     menuButton.setY(198);
