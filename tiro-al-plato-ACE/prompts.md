@@ -872,3 +872,9 @@ Hemos definido un plan robusto que cubre:
 Como tu **Senior Product Owner**, te aseguro que seguir este orden nos permitirá tener una versión jugable y "enseñable" desde la Épica 2, mejorando incrementalmente hasta llegar al producto final.
 
 **¿Deseas que profundicemos en la redacción técnica de alguna de estas historias o que preparemos el "Sprint 1" seleccionando las historias de la Épica 1 y 2?**
+
+## Conclusiones sobre el proceso
+
+Esta práctica la he enfocado desde el punto de vista del PM, ya que no tengo experiencia desarrollando videojuegos. La idea era crear todos los tickets de trabajo e ir pasándolos al agente para ver el resultado que iba dando.
+
+Tras generar las historias de usuario de cada épica, he ido copiando la historia, tal cual aparece en este documento, al agente, y este ha completado el juego casi sin problemas. Los únicos problemas que se han encontrado, menores, han sido relacionados con los popups que aparecen en el juego. Por algún motivo, no ajustaba bien el tamaño y los botones siempre quedaban fuera de primeras. He tenido que añadir un par de prompts adicionales para ir corrigiendo eso de vez en cuando. Por lo demás, el desarrollo ha sido sin problemas.
