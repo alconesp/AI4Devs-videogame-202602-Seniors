@@ -29,11 +29,19 @@ const SHOOT_ZONE_RIGHT_X_RATIO = 0.61;
 const SHOT_RESET_DELAY = 180;
 const HIT_SCORE = 100;
 const SHOT_FEEDBACK_DURATION = 650;
-const HUD_TOP_OFFSET = 148;
+const HUD_TOP_MARGIN = 28;
+const HUD_WIDTH_MIN = 340;
+const HUD_WIDTH_MAX = 560;
+const HUD_HEIGHT = 82;
+const HUD_SIDE_PADDING = 26;
+const HUD_TOP_ROW_Y = -13;
+const HUD_FEEDBACK_Y = 18;
 const DIFFICULTY_STEP = 0.1;
 const MAX_PLATE_SPEED_MULTIPLIER = 2;
 const MAX_SHOOT_ZONE_SCALE_MULTIPLIER = 2;
-const DEFAULT_FEEDBACK = '33 platos: cada 10 desde la derecha aparece un especial por la izquierda';
+const DEFAULT_FEEDBACK = '';
+const TIMER_SIGN_CENTER = Object.freeze({ x: 1394, y: 943 });
+const TIMER_SIGN_FONT_SIZE = 54;
 const SPECIAL_PLATE_CONFIGS = Object.freeze([
   { name: 'azul', tint: 0x4d8fff, score: 200, feedbackColor: '#98c7ff' },
   { name: 'rojo', tint: 0xff6767, score: 500, feedbackColor: '#ffc0c0' },
@@ -48,10 +56,11 @@ export class GameScene extends Phaser.Scene {
     this.leftShootZone = null;
     this.rightShootZone = null;
     this.hud = null;
-    this.instructions = null;
+    this.hudPanel = null;
     this.scoreText = null;
-    this.statusText = null;
+    this.plateText = null;
     this.feedbackText = null;
+    this.timerText = null;
     this.score = 0;
     this.hits = 0;
     this.misses = 0;
@@ -82,10 +91,11 @@ export class GameScene extends Phaser.Scene {
     this.leftShootZone = null;
     this.rightShootZone = null;
     this.hud = null;
-    this.instructions = null;
+    this.hudPanel = null;
     this.scoreText = null;
-    this.statusText = null;
+    this.plateText = null;
     this.feedbackText = null;
+    this.timerText = null;
     this.score = 0;
     this.hits = 0;
     this.misses = 0;
@@ -147,46 +157,43 @@ export class GameScene extends Phaser.Scene {
   createHud() {
     this.hud = this.add.container(0, 0).setDepth(2);
 
-    const panel = this.add.rectangle(0, 0, 600, 248, 0x102236, 0.82)
+    this.hudPanel = this.add.rectangle(0, 0, HUD_WIDTH_MAX, HUD_HEIGHT, 0x102236, 0.84)
       .setOrigin(0.5)
-      .setStrokeStyle(2, 0xf5f1d6, 0.8);
+      .setStrokeStyle(2, 0xe5b75c, 0.9);
 
-    const title = this.add.text(0, -70, 'Partida activa', {
-      fontFamily: 'Trebuchet MS',
-      fontSize: '32px',
-      fontStyle: 'bold',
-      color: '#f5f1d6'
-    }).setOrigin(0.5);
-
-    this.scoreText = this.add.text(0, -18, '', {
+    this.scoreText = this.add.text(0, HUD_TOP_ROW_Y, '', {
       fontFamily: 'Trebuchet MS',
       fontSize: '22px',
-      color: '#ffffff'
-    }).setOrigin(0.5);
-
-    this.statusText = this.add.text(0, 20, '', {
-      fontFamily: 'Trebuchet MS',
-      fontSize: '18px',
-      color: '#dbe9f4'
-    }).setOrigin(0.5);
-
-    this.feedbackText = this.add.text(0, 56, DEFAULT_FEEDBACK, {
-      fontFamily: 'Trebuchet MS',
-      fontSize: '16px',
       fontStyle: 'bold',
-      color: '#f5f1d6',
+      color: '#ffffff'
+    }).setOrigin(0, 0.5);
+
+    this.plateText = this.add.text(0, HUD_TOP_ROW_Y, '', {
+      fontFamily: 'Trebuchet MS',
+      fontSize: '22px',
+      fontStyle: 'bold',
+      color: '#f5f1d6'
+    }).setOrigin(1, 0.5);
+
+    this.feedbackText = this.add.text(0, HUD_FEEDBACK_Y, DEFAULT_FEEDBACK, {
+      fontFamily: 'Trebuchet MS',
+      fontSize: '15px',
+      fontStyle: 'bold',
+      color: '#dbe9f4',
       align: 'center'
     }).setOrigin(0.5);
 
-    this.instructions = this.add.text(0, 92, 'FLECHA IZQ o DER dispara · si aciertas los 33 platos aparece la nave final · ENTER finaliza ronda · ESC vuelve al menu', {
+    this.timerText = this.add.text(0, 0, '0', {
       fontFamily: 'Trebuchet MS',
-      fontSize: '14px',
-      color: '#f5f1d6',
-      align: 'center',
-      wordWrap: { width: 520 }
-    }).setOrigin(0.5);
+      fontSize: `${TIMER_SIGN_FONT_SIZE}px`,
+      fontStyle: 'bold',
+      color: '#f3f6e8'
+    })
+      .setOrigin(0.5)
+      .setDepth(0.9)
+      .setShadow(0, 2, '#111111', 6, false, true);
 
-    this.hud.add([panel, title, this.scoreText, this.statusText, this.feedbackText, this.instructions]);
+    this.hud.add([this.hudPanel, this.scoreText, this.plateText, this.feedbackText]);
   }
 
   registerSceneEvents() {
@@ -833,11 +840,15 @@ export class GameScene extends Phaser.Scene {
 
   updateHud() {
     if (this.scoreText) {
-      this.scoreText.setText(`Puntuacion: ${this.score} · Bloque derecho perfecto: ${this.currentRightBlockMisses === 0 ? 'si' : 'no'}`);
+      this.scoreText.setText(`Puntuacion ${this.score}`);
     }
 
-    if (this.statusText) {
-      this.statusText.setText(`Tiempo: ${this.elapsedSeconds}s · Platos: ${Math.min(this.hits + this.misses, TOTAL_PLATES)}/${TOTAL_PLATES} · Aciertos: ${this.hits} · Fallos: ${this.misses}`);
+    if (this.plateText) {
+      this.plateText.setText(`Platos ${Math.min(this.hits + this.misses, TOTAL_PLATES)}/${TOTAL_PLATES}`);
+    }
+
+    if (this.timerText) {
+      this.timerText.setText(`${this.elapsedSeconds}`);
     }
   }
 
@@ -851,7 +862,25 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.hud) {
-      this.hud.setPosition(width / 2, Phaser.Math.Clamp(HUD_TOP_OFFSET, 140, height - 140));
+      const barWidth = Phaser.Math.Clamp(width * 0.54, HUD_WIDTH_MIN, HUD_WIDTH_MAX);
+      const contentWidth = barWidth - (HUD_SIDE_PADDING * 2);
+      const fontSize = Phaser.Math.Clamp(Math.round(width * 0.019), 18, 24);
+
+      this.hud.setPosition(width / 2, Phaser.Math.Clamp(HUD_TOP_MARGIN + (HUD_HEIGHT * 0.5), 64, height - 140));
+      this.hudPanel?.setSize(barWidth, HUD_HEIGHT);
+      this.scoreText?.setPosition(-contentWidth * 0.5, HUD_TOP_ROW_Y).setFontSize(`${fontSize}px`);
+      this.plateText?.setPosition(contentWidth * 0.5, HUD_TOP_ROW_Y).setFontSize(`${fontSize}px`);
+      this.feedbackText?.setPosition(0, HUD_FEEDBACK_Y).setWordWrapWidth(barWidth - 48).setFontSize(`${Math.max(fontSize - 6, 12)}px`);
+    }
+
+    if (this.timerText && this.background?.texture) {
+      const signPosition = this.getBackgroundPoint(TIMER_SIGN_CENTER.x, TIMER_SIGN_CENTER.y);
+      const backgroundScale = this.background.displayWidth / this.background.width;
+      const timerFontSize = Phaser.Math.Clamp(Math.round(TIMER_SIGN_FONT_SIZE * backgroundScale), 22, TIMER_SIGN_FONT_SIZE);
+
+      this.timerText
+        .setPosition(signPosition.x, signPosition.y)
+        .setFontSize(`${timerFontSize}px`);
     }
 
     if (this.player) {
