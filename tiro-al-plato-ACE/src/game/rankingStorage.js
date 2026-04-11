@@ -55,6 +55,10 @@ function sortEntries(firstEntry, secondEntry) {
     return secondEntry.score - firstEntry.score;
   }
 
+  if (secondEntry.createdAt !== firstEntry.createdAt) {
+    return secondEntry.createdAt - firstEntry.createdAt;
+  }
+
   if (firstEntry.duration !== secondEntry.duration) {
     return firstEntry.duration - secondEntry.duration;
   }
@@ -67,7 +71,7 @@ function sortEntries(firstEntry, secondEntry) {
     return firstEntry.misses - secondEntry.misses;
   }
 
-  return firstEntry.createdAt - secondEntry.createdAt;
+  return 0;
 }
 
 function parseStoredEntries(rawEntries) {
@@ -127,6 +131,23 @@ export function getStoredRankingEntries() {
   }
 
   return rankingEntries;
+}
+
+export function wouldScoreEnterRanking(score) {
+  const normalizedScore = Math.max(0, Number(score) || 0);
+  const rankingEntries = getStoredRankingEntries();
+
+  if (rankingEntries.length < MAX_RANKING_ENTRIES) {
+    return true;
+  }
+
+  const cutoffEntry = rankingEntries[MAX_RANKING_ENTRIES - 1];
+
+  if (!cutoffEntry) {
+    return true;
+  }
+
+  return normalizedScore >= cutoffEntry.score;
 }
 
 export function saveRankingEntry(entry) {

@@ -1,5 +1,12 @@
 import Phaser from 'phaser';
 import { textureKeys } from '../assets/manifest.js';
+import {
+  DEFAULT_INITIALS,
+  MAX_RANKING_ENTRIES,
+  getStoredRankingEntries,
+  saveRankingEntry,
+  wouldScoreEnterRanking
+} from '../game/rankingStorage.js';
 import { sceneKeys } from './sceneKeys.js';
 
 export class ScoresScene extends Phaser.Scene {
@@ -12,6 +19,16 @@ export class ScoresScene extends Phaser.Scene {
     this.duration = 0;
     this.hits = 0;
     this.misses = 0;
+    this.hasRoundActivity = false;
+    this.qualifiesForRanking = false;
+    this.hasSavedRankingEntry = false;
+    this.rankingCutoffScore = 0;
+    this.rankingInitials = '';
+    this.rankingStatusText = null;
+    this.rankingBackdrop = null;
+    this.rankingModal = null;
+    this.rankingInitialsText = null;
+    this.onPopupKeyDown = null;
   }
 
   init(data) {
@@ -22,12 +39,22 @@ export class ScoresScene extends Phaser.Scene {
     this.duration = data?.duration ?? this.registry.get('lastDuration') ?? 0;
     this.hits = data?.hits ?? this.registry.get('lastHits') ?? 0;
     this.misses = data?.misses ?? this.registry.get('lastMisses') ?? 0;
+    this.hasRoundActivity = this.score > 0 || this.hits > 0 || this.misses > 0 || this.duration > 0;
+    this.rankingCutoffScore = getStoredRankingEntries()[MAX_RANKING_ENTRIES - 1]?.score ?? 0;
+    this.qualifiesForRanking = this.hasRoundActivity && wouldScoreEnterRanking(this.score);
+    this.hasSavedRankingEntry = false;
+    this.rankingInitials = this.normalizeRankingInitials(this.registry.get('lastRankingInitials') ?? '');
+    this.rankingStatusText = null;
+    this.rankingBackdrop = null;
+    this.rankingModal = null;
+    this.rankingInitialsText = null;
+    this.onPopupKeyDown = null;
   }
 
   create() {
     this.background = this.add.image(0, 0, textureKeys.background).setOrigin(0.5);
 
-    const panel = this.add.rectangle(0, 0, 540, 320, 0x102236, 0.84)
+    const panel = this.add.rectangle(0, 0, 540, 374, 0x102236, 0.84)
       .setStrokeStyle(2, 0xf5f1d6, 0.85);
 
     const title = this.add.text(0, -82, 'Puntuaciones', {
@@ -51,24 +78,36 @@ export class ScoresScene extends Phaser.Scene {
       align: 'center'
     }).setOrigin(0.5);
 
+    this.rankingStatusText = this.add.text(0, 78, this.getRankingStatusMessage(), {
+      fontFamily: 'Trebuchet MS',
+      fontSize: '18px',
+      color: this.qualifiesForRanking ? '#f5f1d6' : '#dbe9f4',
+      align: 'center',
+      wordWrap: { width: 430 }
+    }).setOrigin(0.5);
+
     const replayButton = this.createButton('Jugar otra vez', () => {
       this.scene.start(sceneKeys.preloader, {
         nextScene: sceneKeys.game
       });
     });
-    replayButton.setY(78);
+    replayButton.setY(136);
 
     const menuButton = this.createButton('Volver al menu', () => {
       this.scene.start(sceneKeys.mainMenu);
     });
-    menuButton.setY(138);
+    menuButton.setY(196);
 
-    this.layout = this.add.container(0, 0, [panel, title, summary, stats, replayButton, menuButton]);
+    this.layout = this.add.container(0, 0, [panel, title, summary, stats, this.rankingStatusText, replayButton, menuButton]);
 
     this.onResize = this.handleResize.bind(this);
     this.scale.on('resize', this.onResize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.handleResize(this.scale.gameSize);
+
+    if (this.qualifiesForRanking) {
+      this.openRankingPopup();
+    }
   }
 
   createButton(label, onClick) {
@@ -90,6 +129,168 @@ export class ScoresScene extends Phaser.Scene {
     return this.add.container(0, 0, [background, text]);
   }
 
+  normalizeRankingInitials(initials) {
+    return String(initials ?? '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '')
+      .slice(0, 3);
+  }
+
+  getRankingStatusMessage() {
+    if (this.hasSavedRankingEntry) {
+      return `Ranking actualizado para ${this.rankingInitials}.`;
+    }
+
+    if (this.qualifiesForRanking) {
+      return `Has entrado en el Top ${MAX_RANKING_ENTRIES}. Registra tus iniciales para guardar la marca.`;
+    }
+
+    if (!this.hasRoundActivity) {
+      return 'No se ha registrado actividad suficiente para entrar en el ranking.';
+    }
+
+    return `No has superado el corte actual del Top ${MAX_RANKING_ENTRIES}, fijado en ${this.rankingCutoffScore} puntos.`;
+  }
+
+  openRankingPopup() {
+    this.rankingBackdrop = this.add.rectangle(0, 0, 0, 0, 0x08111c, 0.7)
+      .setOrigin(0)
+      .setInteractive()
+      .setDepth(10);
+
+    const panel = this.add.rectangle(0, 0, 432, 270, 0x102236, 0.96)
+      .setStrokeStyle(2, 0xe5b75c, 0.92);
+
+    const title = this.add.text(0, -82, 'Nuevo Top 10', {
+      fontFamily: 'Trebuchet MS',
+      fontSize: '30px',
+      fontStyle: 'bold',
+      color: '#f5f1d6'
+    }).setOrigin(0.5);
+
+    const message = this.add.text(0, -26, `Tu ronda de ${this.score} puntos ha entrado en el ranking. Escribe 3 iniciales y pulsa Enter.`, {
+      fontFamily: 'Trebuchet MS',
+      fontSize: '18px',
+      color: '#ffffff',
+      align: 'center',
+      wordWrap: { width: 344 }
+    }).setOrigin(0.5);
+
+    const initialsFrame = this.add.rectangle(0, 34, 226, 62, 0x09131f, 0.94)
+      .setStrokeStyle(2, 0xf5f1d6, 0.7);
+
+    this.rankingInitialsText = this.add.text(0, 34, '', {
+      fontFamily: 'Trebuchet MS',
+      fontSize: '34px',
+      fontStyle: 'bold',
+      color: '#f5f1d6',
+      align: 'center'
+    }).setOrigin(0.5);
+
+    const helper = this.add.text(0, 82, 'Letras y numeros. Backspace borra.', {
+      fontFamily: 'Trebuchet MS',
+      fontSize: '15px',
+      color: '#dbe9f4',
+      align: 'center'
+    }).setOrigin(0.5);
+
+    const saveButton = this.createButton('Guardar marca', () => {
+      this.submitRankingEntry();
+    });
+    saveButton.setY(124);
+
+    this.rankingModal = this.add.container(0, 0, [
+      panel,
+      title,
+      message,
+      initialsFrame,
+      this.rankingInitialsText,
+      helper,
+      saveButton
+    ]).setDepth(11);
+
+    this.updateRankingInitialsText();
+
+    this.onPopupKeyDown = (event) => {
+      this.handlePopupKeyDown(event);
+    };
+    this.input.keyboard.on('keydown', this.onPopupKeyDown);
+    this.handleResize(this.scale.gameSize);
+  }
+
+  handlePopupKeyDown(event) {
+    if (!this.rankingModal) {
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      this.submitRankingEntry();
+      return;
+    }
+
+    if (event.key === 'Backspace') {
+      this.rankingInitials = this.rankingInitials.slice(0, -1);
+      this.updateRankingInitialsText();
+      return;
+    }
+
+    if (!/^[a-z0-9]$/i.test(event.key) || this.rankingInitials.length >= 3) {
+      return;
+    }
+
+    this.rankingInitials = `${this.rankingInitials}${event.key.toUpperCase()}`;
+    this.updateRankingInitialsText();
+  }
+
+  updateRankingInitialsText() {
+    if (!this.rankingInitialsText) {
+      return;
+    }
+
+    this.rankingInitialsText.setText(this.rankingInitials.padEnd(3, '_').split('').join('   '));
+  }
+
+  submitRankingEntry() {
+    if (this.hasSavedRankingEntry) {
+      return;
+    }
+
+    const initials = this.normalizeRankingInitials(this.rankingInitials || DEFAULT_INITIALS);
+
+    saveRankingEntry({
+      initials,
+      score: this.score,
+      duration: this.duration,
+      hits: this.hits,
+      misses: this.misses
+    });
+
+    this.rankingInitials = initials;
+    this.hasSavedRankingEntry = true;
+    this.registry.set('lastRankingInitials', initials);
+
+    if (this.rankingStatusText) {
+      this.rankingStatusText.setText(this.getRankingStatusMessage());
+      this.rankingStatusText.setColor('#a7efb0');
+    }
+
+    this.closeRankingPopup();
+  }
+
+  closeRankingPopup() {
+    if (this.onPopupKeyDown) {
+      this.input.keyboard.off('keydown', this.onPopupKeyDown);
+      this.onPopupKeyDown = null;
+    }
+
+    this.rankingModal?.destroy();
+    this.rankingModal = null;
+    this.rankingInitialsText = null;
+
+    this.rankingBackdrop?.destroy();
+    this.rankingBackdrop = null;
+  }
+
   handleResize(gameSize) {
     const { width, height } = gameSize;
 
@@ -102,6 +303,14 @@ export class ScoresScene extends Phaser.Scene {
     if (this.layout) {
       this.layout.setPosition(width / 2, height / 2);
     }
+
+    if (this.rankingBackdrop) {
+      this.rankingBackdrop.setSize(width, height);
+    }
+
+    if (this.rankingModal) {
+      this.rankingModal.setPosition(width / 2, height / 2);
+    }
   }
 
   handleShutdown() {
@@ -109,5 +318,7 @@ export class ScoresScene extends Phaser.Scene {
       this.scale.off('resize', this.onResize);
       this.onResize = null;
     }
+
+    this.closeRankingPopup();
   }
 }
