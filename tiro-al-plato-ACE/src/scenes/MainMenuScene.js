@@ -9,8 +9,12 @@ export class MainMenuScene extends Phaser.Scene {
     this.background = null;
     this.player = null;
     this.menuPanel = null;
-    this.playButton = null;
+    this.titleText = null;
+    this.subtitleText = null;
     this.statusText = null;
+    this.playButton = null;
+    this.rankingButton = null;
+    this.controlsButton = null;
     this.onResize = null;
   }
 
@@ -18,8 +22,12 @@ export class MainMenuScene extends Phaser.Scene {
     this.background = null;
     this.player = null;
     this.menuPanel = null;
-    this.playButton = null;
+    this.titleText = null;
+    this.subtitleText = null;
     this.statusText = null;
+    this.playButton = null;
+    this.rankingButton = null;
+    this.controlsButton = null;
     this.onResize = null;
   }
 
@@ -39,46 +47,75 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   createOverlay() {
-    const title = this.add.text(0, 0, 'Tiro al Plato ACE', {
+    const outerGlow = this.add.rectangle(0, 0, 588, 448, 0x09131f, 0.46)
+      .setStrokeStyle(2, 0x36597a, 0.55);
+
+    const panel = this.add.rectangle(0, 0, 548, 408, 0x102236, 0.84)
+      .setStrokeStyle(2, 0xf5f1d6, 0.88);
+
+    const headerBar = this.add.rectangle(0, -126, 472, 36, 0xe5b75c, 0.12)
+      .setStrokeStyle(1, 0xe5b75c, 0.45);
+
+    this.titleText = this.add.text(0, 0, 'Tiro al Plato', {
       fontFamily: 'Trebuchet MS',
-      fontSize: '42px',
+      fontSize: '44px',
       fontStyle: 'bold',
       color: '#f5f1d6',
       stroke: '#0f2233',
       strokeThickness: 6
     });
 
-    const subtitle = this.add.text(0, 0, 'Entorno Vite + Phaser 3 listo para iterar.', {
+    this.subtitleText = this.add.text(0, 0, 'Elige tu siguiente tiro y entra directo a la accion.', {
       fontFamily: 'Trebuchet MS',
       fontSize: '18px',
       color: '#ffffff',
-      align: 'center'
+      align: 'center',
+      wordWrap: { width: 420 }
     });
 
     this.statusText = this.add.text(0, 0, this.getStatusMessage(), {
       fontFamily: 'Trebuchet MS',
-      fontSize: '16px',
+      fontSize: '15px',
       color: '#dbe9f4',
-      align: 'center'
+      align: 'center',
+      wordWrap: { width: 410 }
     });
 
-    this.playButton = this.createPlayButton();
+    this.playButton = this.createMenuButton('Nueva Partida', () => {
+      this.scene.start(sceneKeys.preloader, {
+        nextScene: sceneKeys.game
+      });
+    });
+
+    this.rankingButton = this.createMenuButton('Ranking', () => {
+      this.scene.start(sceneKeys.ranking);
+    });
+
+    this.controlsButton = this.createMenuButton('Controles', () => {
+      this.scene.start(sceneKeys.controls);
+    });
 
     this.menuPanel = this.add.container(0, 0, [
-      this.add.rectangle(0, 0, 520, 240, 0x102236, 0.78).setStrokeStyle(2, 0xf5f1d6, 0.85),
-      title,
-      subtitle,
+      outerGlow,
+      panel,
+      headerBar,
+      this.titleText,
+      this.subtitleText,
       this.statusText,
-      this.playButton
+      this.playButton,
+      this.rankingButton,
+      this.controlsButton
     ]).setDepth(2);
 
-    title.setY(-58);
-    title.setOrigin(0.5);
-    subtitle.setY(-2);
-    subtitle.setOrigin(0.5);
-    this.statusText.setY(46);
+    this.titleText.setY(-126);
+    this.titleText.setOrigin(0.5);
+    this.subtitleText.setY(-72);
+    this.subtitleText.setOrigin(0.5);
+    this.statusText.setY(-18);
     this.statusText.setOrigin(0.5);
-    this.playButton.setY(98);
+    this.playButton.setY(46);
+    this.rankingButton.setY(108);
+    this.controlsButton.setY(170);
   }
 
   createPlayer() {
@@ -93,12 +130,12 @@ export class MainMenuScene extends Phaser.Scene {
     ]);
   }
 
-  createPlayButton() {
-    const background = this.add.rectangle(0, 0, 240, 46, 0xe5b75c, 1)
+  createMenuButton(label, onClick) {
+    const background = this.add.rectangle(0, 0, 286, 46, 0xe5b75c, 1)
       .setStrokeStyle(2, 0x0f2233, 0.9)
       .setInteractive({ useHandCursor: true });
 
-    const label = this.add.text(0, 0, 'Entrar en partida', {
+    const text = this.add.text(0, 0, label, {
       fontFamily: 'Trebuchet MS',
       fontSize: '18px',
       fontStyle: 'bold',
@@ -107,23 +144,24 @@ export class MainMenuScene extends Phaser.Scene {
 
     background.on('pointerover', () => background.setFillStyle(0xf2cb7d, 1));
     background.on('pointerout', () => background.setFillStyle(0xe5b75c, 1));
-    background.on('pointerup', () => {
-      this.scene.start(sceneKeys.preloader, {
-        nextScene: sceneKeys.game
-      });
-    });
+    background.on('pointerup', onClick);
 
-    return this.add.container(0, 0, [background, label]);
+    return this.add.container(0, 0, [background, text]);
   }
 
   getStatusMessage() {
+    const bestScore = this.registry.get('bestScore');
     const lastScore = this.registry.get('lastScore');
 
-    if (typeof lastScore === 'number') {
-      return `Ultima puntuacion registrada: ${lastScore}`;
+    if (typeof bestScore === 'number') {
+      return `Mejor marca de la sesion: ${bestScore} puntos${typeof lastScore === 'number' ? ` · Ultima ronda: ${lastScore}` : ''}`;
     }
 
-    return 'Flujo activo: Boot -> Menu -> Partida -> Puntuaciones';
+    if (typeof lastScore === 'number') {
+      return `Ultima puntuacion registrada: ${lastScore} puntos`;
+    }
+
+    return '';
   }
 
   handleResize(gameSize) {
@@ -136,7 +174,7 @@ export class MainMenuScene extends Phaser.Scene {
     }
 
     if (this.menuPanel) {
-      this.menuPanel.setPosition(width / 2, height * 0.22);
+      this.menuPanel.setPosition(width / 2, height / 2);
     }
 
     if (this.player) {

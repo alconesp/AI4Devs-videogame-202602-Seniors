@@ -807,11 +807,22 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    const bestScore = this.registry.get('bestScore');
+    const shouldUpdateBestScore = typeof bestScore !== 'number' || this.score > bestScore;
+
     this.roundEnding = true;
     this.registry.set('lastScore', this.score);
     this.registry.set('lastDuration', this.elapsedSeconds);
     this.registry.set('lastHits', this.hits);
     this.registry.set('lastMisses', this.misses);
+
+    if (shouldUpdateBestScore) {
+      this.registry.set('bestScore', this.score);
+      this.registry.set('bestDuration', this.elapsedSeconds);
+      this.registry.set('bestHits', this.hits);
+      this.registry.set('bestMisses', this.misses);
+    }
+
     this.scene.start(sceneKeys.scores, {
       score: this.score,
       duration: this.elapsedSeconds,

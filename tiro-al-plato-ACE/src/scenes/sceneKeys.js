@@ -3,5 +3,7 @@ export const sceneKeys = {
   preloader: 'Preloader',
   mainMenu: 'MainMenu',
   game: 'GameScene',
+  ranking: 'RankingScene',
+  controls: 'ControlsScene',
   scores: 'ScoresScene'
 };
