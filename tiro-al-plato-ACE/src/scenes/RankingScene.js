@@ -4,9 +4,9 @@ import { MAX_RANKING_ENTRIES, getStoredRankingEntries } from '../game/rankingSto
 import { sceneKeys } from './sceneKeys.js';
 
 const PANEL_WIDTH = 620;
-const PANEL_HEIGHT = 560;
-const ROW_HEIGHT = 48;
-const ROW_START_Y = -64;
+const PANEL_HEIGHT = 820;
+const ROW_HEIGHT = 34;
+const ROW_START_Y = -124;
 
 export class RankingScene extends Phaser.Scene {
   constructor() {
@@ -15,6 +15,7 @@ export class RankingScene extends Phaser.Scene {
     this.layout = null;
     this.onResize = null;
     this.rankingEntries = [];
+    this.hasPlayerEntries = false;
   }
 
   init() {
@@ -22,6 +23,7 @@ export class RankingScene extends Phaser.Scene {
     this.layout = null;
     this.onResize = null;
     this.rankingEntries = getStoredRankingEntries();
+    this.hasPlayerEntries = this.rankingEntries.some((entry) => !entry.isDefault);
   }
 
   create() {
@@ -45,25 +47,25 @@ export class RankingScene extends Phaser.Scene {
     const panel = this.add.rectangle(0, 0, PANEL_WIDTH, PANEL_HEIGHT, 0x102236, 0.84)
       .setStrokeStyle(2, 0xf5f1d6, 0.88);
 
-    const accent = this.add.rectangle(0, -208, 500, 34, 0xe5b75c, 0.12)
+    const accent = this.add.rectangle(0, -344, 500, 34, 0xe5b75c, 0.12)
       .setStrokeStyle(1, 0xe5b75c, 0.42);
 
-    const title = this.add.text(0, -208, 'Ranking', {
+    const title = this.add.text(0, -344, 'Ranking', {
       fontFamily: 'Trebuchet MS',
       fontSize: '36px',
       fontStyle: 'bold',
       color: '#f5f1d6'
     }).setOrigin(0.5);
 
-    const subtitle = this.add.text(0, -164, this.getSubtitle(), {
+    const subtitle = this.add.text(0, -300, this.getSubtitle(), {
       fontFamily: 'Trebuchet MS',
-      fontSize: '18px',
+      fontSize: '17px',
       color: '#ffffff',
       align: 'center',
       wordWrap: { width: 470 }
     }).setOrigin(0.5);
 
-    const headerRow = this.add.container(0, -118, [
+    const headerRow = this.add.container(0, -170, [
       this.add.rectangle(0, 0, 500, 34, 0xe5b75c, 0.16)
         .setStrokeStyle(1, 0xe5b75c, 0.3),
       this.add.text(-208, 0, '#', {
@@ -94,7 +96,7 @@ export class RankingScene extends Phaser.Scene {
 
     const rows = this.createRankingRows();
 
-    const footer = this.add.text(0, 188, this.getFooterText(), {
+    const footer = this.add.text(0, 274, this.getFooterText(), {
       fontFamily: 'Trebuchet MS',
       fontSize: '17px',
       color: '#dbe9f4',
@@ -105,7 +107,7 @@ export class RankingScene extends Phaser.Scene {
     const menuButton = this.createButton('Volver al menu', () => {
       this.scene.start(sceneKeys.mainMenu);
     });
-    menuButton.setY(232);
+    menuButton.setY(336);
 
     this.layout = this.add.container(0, 0, [
       outerGlow,
@@ -126,34 +128,35 @@ export class RankingScene extends Phaser.Scene {
     return visibleEntries.map((entry, index) => {
       const y = ROW_START_Y + (index * ROW_HEIGHT);
       const rowTint = index % 2 === 0 ? 0x132b44 : 0x0f2233;
-      const rowAlpha = entry.isPlaceholder ? 0.3 : 0.62;
-      const textColor = entry.isPlaceholder ? '#d0d7de' : '#ffffff';
+      const isMutedRow = entry.isPlaceholder || entry.isDefault;
+      const rowAlpha = entry.isPlaceholder ? 0.3 : (entry.isDefault ? 0.42 : 0.62);
+      const textColor = isMutedRow ? '#d0d7de' : '#ffffff';
 
       return this.add.container(0, y, [
         this.add.rectangle(0, 0, 500, 38, rowTint, rowAlpha)
           .setStrokeStyle(1, 0xf5f1d6, entry.isPlaceholder ? 0.18 : 0.24),
         this.add.text(-208, 0, `${index + 1}`, {
           fontFamily: 'Trebuchet MS',
-          fontSize: '20px',
+          fontSize: '18px',
           fontStyle: 'bold',
           color: '#f5f1d6'
         }).setOrigin(0.5),
         this.add.text(-116, 0, entry.initials, {
           fontFamily: 'Trebuchet MS',
-          fontSize: '20px',
+          fontSize: '18px',
           fontStyle: 'bold',
           color: textColor
         }).setOrigin(0.5),
         this.add.text(80, 0, this.formatScore(entry.score), {
           fontFamily: 'Trebuchet MS',
-          fontSize: '20px',
+          fontSize: '18px',
           fontStyle: 'bold',
           color: textColor
         }).setOrigin(0.5),
         this.add.text(202, 0, this.formatDuration(entry.duration), {
           fontFamily: 'Trebuchet MS',
-          fontSize: '18px',
-          color: entry.isPlaceholder ? '#c9d3dc' : '#dbe9f4'
+          fontSize: '17px',
+          color: isMutedRow ? '#c9d3dc' : '#dbe9f4'
         }).setOrigin(0.5)
       ]);
     });
@@ -197,20 +200,21 @@ export class RankingScene extends Phaser.Scene {
   }
 
   getSubtitle() {
-    if (this.rankingEntries.length > 0) {
+    if (this.hasPlayerEntries) {
       return 'Tus mejores rondas quedan registradas aqui para que puedas perseguir el siguiente record.';
     }
 
-    return 'Aun no hay datos guardados. Tus futuros records apareceran en este panel.';
+    return 'El ranking arranca con marcas base de la CPU para que nunca quede vacio. Superalas para reclamar el top 10.';
   }
 
   getFooterText() {
-    if (this.rankingEntries.length > 0) {
+    if (this.hasPlayerEntries) {
       const bestEntry = this.rankingEntries[0];
       return `Mejor marca actual: ${bestEntry.initials} - ${this.formatScore(bestEntry.score)} en ${this.formatDuration(bestEntry.duration)}`;
     }
 
-    return 'La tabla muestra placeholders hasta que completes tu primera ronda.';
+    const defaultLeader = this.rankingEntries[0];
+    return `Marca base actual: ${defaultLeader.initials} - ${this.formatScore(defaultLeader.score)}. Tu siguiente gran ronda puede desplazarla.`;
   }
 
   formatScore(score) {

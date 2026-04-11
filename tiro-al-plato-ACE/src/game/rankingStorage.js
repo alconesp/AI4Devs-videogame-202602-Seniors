@@ -1,6 +1,9 @@
 const RANKING_STORAGE_KEY = 'tiro-al-plato-ace-ranking';
-const MAX_RANKING_ENTRIES = 5;
+const MAX_RANKING_ENTRIES = 10;
 const DEFAULT_INITIALS = 'ACE';
+const DEFAULT_RANKING_INITIALS = 'CPU';
+const DEFAULT_RANKING_TOP_SCORE = 500;
+const DEFAULT_RANKING_SCORE_STEP = 50;
 
 function getStorage() {
   if (typeof window === 'undefined' || !window.localStorage) {
@@ -19,6 +22,22 @@ function normalizeInitials(initials) {
   return sanitizedInitials.padEnd(3, 'A');
 }
 
+function createDefaultEntry(index) {
+  return {
+    initials: DEFAULT_RANKING_INITIALS,
+    score: Math.max(0, DEFAULT_RANKING_TOP_SCORE - (index * DEFAULT_RANKING_SCORE_STEP)),
+    duration: 0,
+    hits: 0,
+    misses: 0,
+    createdAt: -(MAX_RANKING_ENTRIES - index),
+    isDefault: true
+  };
+}
+
+function buildDefaultRankingEntries() {
+  return Array.from({ length: MAX_RANKING_ENTRIES }, (_, index) => createDefaultEntry(index));
+}
+
 function normalizeEntry(entry, index = 0) {
   return {
     initials: normalizeInitials(entry?.initials),
@@ -26,7 +45,8 @@ function normalizeEntry(entry, index = 0) {
     duration: Math.max(0, Number(entry?.duration) || 0),
     hits: Math.max(0, Number(entry?.hits) || 0),
     misses: Math.max(0, Number(entry?.misses) || 0),
-    createdAt: Number(entry?.createdAt) || index
+    createdAt: Number(entry?.createdAt) || index,
+    isDefault: Boolean(entry?.isDefault)
   };
 }
 
@@ -50,56 +70,91 @@ function sortEntries(firstEntry, secondEntry) {
   return firstEntry.createdAt - secondEntry.createdAt;
 }
 
-export function getStoredRankingEntries() {
-  const storage = getStorage();
-
-  if (!storage) {
+function parseStoredEntries(rawEntries) {
+  if (!rawEntries) {
     return [];
   }
 
   try {
-    const rawEntries = storage.getItem(RANKING_STORAGE_KEY);
-
-    if (!rawEntries) {
-      return [];
-    }
-
     const parsedEntries = JSON.parse(rawEntries);
 
     if (!Array.isArray(parsedEntries)) {
       return [];
     }
 
-    return parsedEntries
-      .map((entry, index) => normalizeEntry(entry, index))
-      .sort(sortEntries)
-      .slice(0, MAX_RANKING_ENTRIES);
+    return parsedEntries;
   } catch {
     return [];
   }
 }
 
-export function saveRankingEntry(entry) {
+function buildRankingEntries(entries) {
+  return [...entries, ...buildDefaultRankingEntries()]
+    .map((entry, index) => normalizeEntry(entry, index))
+    .sort(sortEntries)
+    .slice(0, MAX_RANKING_ENTRIES);
+}
+
+function persistRankingEntries(storage, entries) {
+  const serializedEntries = JSON.stringify(entries);
+
+  try {
+    storage.setItem(RANKING_STORAGE_KEY, serializedEntries);
+  } catch {
+    return false;
+  }
+
+  return true;
+}
+
+export function getStoredRankingEntries() {
   const storage = getStorage();
+  const fallbackEntries = buildDefaultRankingEntries();
 
   if (!storage) {
-    return [];
+    return fallbackEntries;
+  }
+
+  const rawEntries = storage.getItem(RANKING_STORAGE_KEY);
+  const rankingEntries = buildRankingEntries(parseStoredEntries(rawEntries));
+
+  if (JSON.stringify(rankingEntries) !== rawEntries) {
+    const hasPersistedEntries = persistRankingEntries(storage, rankingEntries);
+
+    if (!hasPersistedEntries) {
+      return fallbackEntries;
+    }
+  }
+
+  return rankingEntries;
+}
+
+export function saveRankingEntry(entry) {
+  const storage = getStorage();
+  const fallbackEntries = buildDefaultRankingEntries();
+
+  if (!storage) {
+    return buildRankingEntries([
+      ...fallbackEntries,
+      normalizeEntry({
+        ...entry,
+        createdAt: Date.now(),
+        isDefault: false
+      }, fallbackEntries.length)
+    ]);
   }
 
   const rankingEntries = getStoredRankingEntries();
-  const nextEntries = [
+  const nextEntries = buildRankingEntries([
     ...rankingEntries,
     normalizeEntry({
       ...entry,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      isDefault: false
     }, rankingEntries.length)
-  ]
-    .sort(sortEntries)
-    .slice(0, MAX_RANKING_ENTRIES);
+  ]);
 
-  try {
-    storage.setItem(RANKING_STORAGE_KEY, JSON.stringify(nextEntries));
-  } catch {
+  if (!persistRankingEntries(storage, nextEntries)) {
     return rankingEntries;
   }
 
