@@ -465,6 +465,8 @@ Aquí tienes las User Stories para la **Épica 2: El Core Gameplay**.
 
 ##### US 2.5: Lógica de Platos Especiales y Evento Nave (Endgame)
 * **Historia:** Como **jugador experto**, quiero **enfrentarme a platos especiales y una nave final**, para **obtener puntuaciones masivas y un cierre épico**.
+* **Descripción**:
+El número total de platos que deben salir por pantalla son 33. Si ha acertado los 33 platos, aparecerá una nave cruzando de izquierda a derecha, solamente aparece en ese caso.
 * **Criterios de Aceptación (BDD):**
     * **Escenario 1:** Plato por la izquierda.
         * **Dado que** se han lanzado 10 platos por la derecha.

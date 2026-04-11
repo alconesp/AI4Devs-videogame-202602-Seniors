@@ -1,17 +1,26 @@
 import Phaser from 'phaser';
 import { textureKeys } from '../assets/manifest.js';
+import { BonusShipPrefab } from '../prefabs/BonusShipPrefab.js';
 import { BrokenPlateEffect } from '../prefabs/BrokenPlateEffect.js';
 import { PlatePrefab } from '../prefabs/PlatePrefab.js';
 import { PlayerPrefab } from '../prefabs/PlayerPrefab.js';
 import { sceneKeys } from './sceneKeys.js';
 
-const PLATE_SPAWN_POINT = Object.freeze({ x: 1536, y: 600 });
-const PLATE_END_X = -96;
+const RIGHT_PLATE_SPAWN_POINT = Object.freeze({ x: 1536, y: 600 });
+const LEFT_SPECIAL_PLATE_SPAWN_POINT = Object.freeze({ x: 0, y: 600 });
+const PLATE_EXIT_MARGIN = 96;
 const PLATE_FIXED_SPEED = 660;
 const PLATE_SCALE = 0.2;
 const PLATE_MIN_ARC_HEIGHT = 160;
 const PLATE_MAX_ARC_HEIGHT = 320;
 const PLATE_SPAWN_DELAY = 1100;
+const TOTAL_PLATES = 33;
+const PLATES_PER_SEQUENCE = 11;
+const MIN_SPECIAL_LAUNCH_ANGLE = 18;
+const ALIEN_SHIP_SCORE = 5000;
+const ALIEN_SHIP_SPEED = 540;
+const ALIEN_SHIP_SCALE = 0.3;
+const ALIEN_SHIP_MARGIN = 180;
 const SHOOT_ZONE_SIZE = 46;
 const SHOOT_ZONE_ALPHA = 0.78;
 const SHOOT_ZONE_Y_RATIO = 0.72;
@@ -24,6 +33,12 @@ const HUD_TOP_OFFSET = 148;
 const DIFFICULTY_STEP = 0.1;
 const MAX_PLATE_SPEED_MULTIPLIER = 2;
 const MAX_SHOOT_ZONE_SCALE_MULTIPLIER = 2;
+const DEFAULT_FEEDBACK = '33 platos: cada 10 desde la derecha aparece un especial por la izquierda';
+const SPECIAL_PLATE_CONFIGS = Object.freeze([
+  { name: 'azul', tint: 0x4d8fff, score: 200, feedbackColor: '#98c7ff' },
+  { name: 'rojo', tint: 0xff6767, score: 500, feedbackColor: '#ffc0c0' },
+  { name: 'verde', tint: 0x54da78, score: 1000, feedbackColor: '#baf5c6' }
+]);
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -40,11 +55,18 @@ export class GameScene extends Phaser.Scene {
     this.score = 0;
     this.hits = 0;
     this.misses = 0;
+    this.platesSpawned = 0;
+    this.specialPlatesSpawned = 0;
+    this.currentRightBlockMisses = 0;
+    this.consecutivePerfectBlocks = 0;
+    this.sequenceComplete = false;
+    this.finalShipSpawned = false;
+    this.roundEnding = false;
     this.elapsedSeconds = 0;
     this.roundTimer = null;
     this.plateSpawnTimer = null;
     this.feedbackTimer = null;
-    this.activePlates = [];
+    this.activeTargets = [];
     this.plateSpeedMultiplier = 1;
     this.shootZoneScaleMultiplier = 1;
     this.onResize = null;
@@ -67,11 +89,18 @@ export class GameScene extends Phaser.Scene {
     this.score = 0;
     this.hits = 0;
     this.misses = 0;
+    this.platesSpawned = 0;
+    this.specialPlatesSpawned = 0;
+    this.currentRightBlockMisses = 0;
+    this.consecutivePerfectBlocks = 0;
+    this.sequenceComplete = false;
+    this.finalShipSpawned = false;
+    this.roundEnding = false;
     this.elapsedSeconds = 0;
     this.roundTimer = null;
     this.plateSpawnTimer = null;
     this.feedbackTimer = null;
-    this.activePlates = [];
+    this.activeTargets = [];
     this.plateSpeedMultiplier = 1;
     this.shootZoneScaleMultiplier = 1;
     this.onResize = null;
@@ -88,9 +117,9 @@ export class GameScene extends Phaser.Scene {
     this.createHud();
     this.registerSceneEvents();
     this.registerInput();
+    this.handleResize(this.scale.gameSize);
     this.startRoundTimer();
     this.startPlateSpawner();
-    this.handleResize(this.scale.gameSize);
     this.updateHud();
   }
 
@@ -118,7 +147,7 @@ export class GameScene extends Phaser.Scene {
   createHud() {
     this.hud = this.add.container(0, 0).setDepth(2);
 
-    const panel = this.add.rectangle(0, 0, 560, 248, 0x102236, 0.82)
+    const panel = this.add.rectangle(0, 0, 600, 248, 0x102236, 0.82)
       .setOrigin(0.5)
       .setStrokeStyle(2, 0xf5f1d6, 0.8);
 
@@ -131,7 +160,7 @@ export class GameScene extends Phaser.Scene {
 
     this.scoreText = this.add.text(0, -18, '', {
       fontFamily: 'Trebuchet MS',
-      fontSize: '24px',
+      fontSize: '22px',
       color: '#ffffff'
     }).setOrigin(0.5);
 
@@ -141,18 +170,20 @@ export class GameScene extends Phaser.Scene {
       color: '#dbe9f4'
     }).setOrigin(0.5);
 
-    this.feedbackText = this.add.text(0, 56, 'Rompe los platos dentro del cuadrado rojo', {
+    this.feedbackText = this.add.text(0, 56, DEFAULT_FEEDBACK, {
       fontFamily: 'Trebuchet MS',
-      fontSize: '18px',
+      fontSize: '16px',
       fontStyle: 'bold',
-      color: '#f5f1d6'
-    }).setOrigin(0.5);
-
-    this.instructions = this.add.text(0, 92, 'FLECHA IZQ o DER rompe el plato al entrar en su cuadrado · ENTER finaliza ronda · ESC vuelve al menu', {
-      fontFamily: 'Trebuchet MS',
-      fontSize: '15px',
       color: '#f5f1d6',
       align: 'center'
+    }).setOrigin(0.5);
+
+    this.instructions = this.add.text(0, 92, 'FLECHA IZQ o DER dispara · si aciertas los 33 platos aparece la nave final · ENTER finaliza ronda · ESC vuelve al menu', {
+      fontFamily: 'Trebuchet MS',
+      fontSize: '14px',
+      color: '#f5f1d6',
+      align: 'center',
+      wordWrap: { width: 520 }
     }).setOrigin(0.5);
 
     this.hud.add([panel, title, this.scoreText, this.statusText, this.feedbackText, this.instructions]);
@@ -190,10 +221,10 @@ export class GameScene extends Phaser.Scene {
   handleShot(zone, textureKey) {
     this.activateShootZone(zone, textureKey);
 
-    const hitPlateIndex = this.findHittablePlateIndex(zone);
+    const hitTargetIndex = this.findHittableTargetIndex(zone);
 
-    if (hitPlateIndex >= 0) {
-      this.registerHit(hitPlateIndex);
+    if (hitTargetIndex >= 0) {
+      this.registerHit(hitTargetIndex);
       return;
     }
 
@@ -220,7 +251,7 @@ export class GameScene extends Phaser.Scene {
     this.player?.playShot(textureKey, { resetDelay: SHOT_RESET_DELAY });
   }
 
-  findHittablePlateIndex(zone) {
+  findHittableTargetIndex(zone) {
     if (!zone) {
       return -1;
     }
@@ -228,14 +259,14 @@ export class GameScene extends Phaser.Scene {
     let closestIndex = -1;
     let closestDistance = Number.POSITIVE_INFINITY;
 
-    for (let index = 0; index < this.activePlates.length; index += 1) {
-      const plate = this.activePlates[index];
+    for (let index = 0; index < this.activeTargets.length; index += 1) {
+      const target = this.activeTargets[index];
 
-      if (plate.wasHit || !this.doesPlateOverlapZone(plate, zone)) {
+      if (target.wasHit || !this.doesTargetOverlapZone(target, zone)) {
         continue;
       }
 
-      const distance = Math.abs(plate.x - zone.x);
+      const distance = Math.abs(target.x - zone.x);
 
       if (distance < closestDistance) {
         closestDistance = distance;
@@ -258,16 +289,30 @@ export class GameScene extends Phaser.Scene {
   }
 
   startPlateSpawner() {
-    this.spawnPlate();
+    this.spawnNextPlate();
 
     this.plateSpawnTimer = this.time.addEvent({
       delay: this.getCurrentPlateSpawnDelay(),
       loop: true,
       callback: () => {
-        this.spawnPlate();
+        const hasSpawnedPlate = this.spawnNextPlate();
+
+        if (!hasSpawnedPlate) {
+          this.stopPlateSpawner();
+          this.checkRoundResolution();
+          return;
+        }
+
         this.syncPlateSpawnDelay();
       }
     });
+  }
+
+  stopPlateSpawner() {
+    if (this.plateSpawnTimer) {
+      this.plateSpawnTimer.remove(false);
+      this.plateSpawnTimer = null;
+    }
   }
 
   getCurrentPlateSpawnDelay() {
@@ -282,68 +327,239 @@ export class GameScene extends Phaser.Scene {
     this.plateSpawnTimer.delay = this.getCurrentPlateSpawnDelay();
   }
 
-  spawnPlate() {
-    const travelDistance = PLATE_SPAWN_POINT.x - PLATE_END_X;
+  spawnNextPlate() {
+    if (this.platesSpawned >= TOTAL_PLATES) {
+      this.sequenceComplete = true;
+      return false;
+    }
+
+    const launchNumber = this.platesSpawned + 1;
+
+    if (this.isSpecialPlateLaunch(launchNumber)) {
+      this.spawnSpecialPlate();
+    } else {
+      this.spawnRightPlate();
+    }
+
+    this.platesSpawned = launchNumber;
+
+    if (this.platesSpawned >= TOTAL_PLATES) {
+      this.sequenceComplete = true;
+    }
+
+    return true;
+  }
+
+  isSpecialPlateLaunch(launchNumber) {
+    return launchNumber % PLATES_PER_SEQUENCE === 0;
+  }
+
+  spawnRightPlate() {
+    const spawnPoint = this.getBackgroundPoint(RIGHT_PLATE_SPAWN_POINT.x, RIGHT_PLATE_SPAWN_POINT.y);
+    const exitPoint = this.getBackgroundPoint(-PLATE_EXIT_MARGIN, RIGHT_PLATE_SPAWN_POINT.y);
+    const trajectory = this.createArcTrajectory({
+      startX: spawnPoint.x,
+      startY: spawnPoint.y,
+      endX: exitPoint.x,
+      endY: exitPoint.y
+    });
+
+    this.activeTargets.push(this.createPlateTarget(trajectory, { isRightPlate: true }));
+  }
+
+  spawnSpecialPlate() {
+    const spawnPoint = this.getBackgroundPoint(LEFT_SPECIAL_PLATE_SPAWN_POINT.x, LEFT_SPECIAL_PLATE_SPAWN_POINT.y);
+    const exitPoint = this.getBackgroundPoint(1536 + PLATE_EXIT_MARGIN, LEFT_SPECIAL_PLATE_SPAWN_POINT.y);
+    const trajectory = this.createArcTrajectory({
+      startX: spawnPoint.x,
+      startY: spawnPoint.y,
+      endX: exitPoint.x,
+      endY: exitPoint.y,
+      minLaunchAngle: MIN_SPECIAL_LAUNCH_ANGLE
+    });
+
+    const hasPerfectRightBlock = this.currentRightBlockMisses === 0;
+
+    if (hasPerfectRightBlock) {
+      const specialPlate = SPECIAL_PLATE_CONFIGS[this.consecutivePerfectBlocks] ?? SPECIAL_PLATE_CONFIGS[SPECIAL_PLATE_CONFIGS.length - 1];
+
+      this.specialPlatesSpawned += 1;
+      this.consecutivePerfectBlocks += 1;
+      this.activeTargets.push(this.createPlateTarget(trajectory, {
+        tint: specialPlate.tint,
+        hitScore: specialPlate.score,
+        targetLabel: `Plato ${specialPlate.name}`,
+        feedbackMessage: `Plato ${specialPlate.name} +${specialPlate.score}`,
+        feedbackColor: specialPlate.feedbackColor,
+        isSpecialPlate: true
+      }));
+    } else {
+      this.specialPlatesSpawned = 0;
+      this.activeTargets.push(this.createPlateTarget(trajectory, {
+        targetLabel: 'Plato normal izquierda'
+      }));
+    }
+
+    this.currentRightBlockMisses = 0;
+  }
+
+  createArcTrajectory(config) {
+    const startX = config.startX;
+    const startY = config.startY;
+    const endX = config.endX;
+    const endY = config.endY;
+    const minLaunchAngle = config.minLaunchAngle ?? MIN_SPECIAL_LAUNCH_ANGLE;
+    const travelDistance = Math.abs(endX - startX);
     const travelDuration = travelDistance / PLATE_FIXED_SPEED;
-    const maxArcHeight = Math.min(PLATE_MAX_ARC_HEIGHT, PLATE_SPAWN_POINT.y - 120);
-    const arcHeight = Phaser.Math.FloatBetween(PLATE_MIN_ARC_HEIGHT, maxArcHeight);
-    const controlX = (PLATE_SPAWN_POINT.x + PLATE_END_X) * 0.5;
-    const controlY = PLATE_SPAWN_POINT.y - (arcHeight * 2);
-    const initialVelocityX = (2 * (controlX - PLATE_SPAWN_POINT.x)) / travelDuration;
-    const initialVelocityY = (2 * (controlY - PLATE_SPAWN_POINT.y)) / travelDuration;
+    const maxArcHeight = Math.min(PLATE_MAX_ARC_HEIGHT, Math.min(startY, endY) - 120);
+    const minimumArcHeight = Phaser.Math.Clamp(
+      Math.max(PLATE_MIN_ARC_HEIGHT, (travelDistance * Math.tan(Phaser.Math.DegToRad(minLaunchAngle))) / 4),
+      0,
+      maxArcHeight
+    );
+    const arcHeight = Phaser.Math.FloatBetween(minimumArcHeight, maxArcHeight);
+    const controlX = (startX + endX) * 0.5;
+    const controlY = Math.min(startY, endY) - (arcHeight * 2);
+    const initialVelocityX = (2 * (controlX - startX)) / travelDuration;
+    const initialVelocityY = (2 * (controlY - startY)) / travelDuration;
     const launchAngle = Phaser.Math.RadToDeg(
       Math.atan2(Math.abs(initialVelocityY), Math.abs(initialVelocityX))
     );
-    const plate = new PlatePrefab(this, PLATE_SPAWN_POINT.x, PLATE_SPAWN_POINT.y, textureKeys.plate, {
-      startX: PLATE_SPAWN_POINT.x,
-      startY: PLATE_SPAWN_POINT.y,
-      endX: PLATE_END_X,
-      endY: PLATE_SPAWN_POINT.y,
+
+    return {
+      startX,
+      startY,
+      endX,
+      endY,
       controlX,
       controlY,
       travelDuration,
-      launchAngle,
+      launchAngle
+    };
+  }
+
+  createPlateTarget(trajectory, config = {}) {
+    const plate = new PlatePrefab(this, trajectory.startX, trajectory.startY, textureKeys.plate, {
+      ...trajectory,
       scale: PLATE_SCALE
     });
 
     plate.setDepth(1.5);
-    this.activePlates.push(plate);
+
+    if (config.tint !== undefined) {
+      plate.plateImage.setTint(config.tint);
+    }
+
+    plate.hitScore = config.hitScore ?? HIT_SCORE;
+    plate.feedbackMessage = config.feedbackMessage ?? `Acierto +${plate.hitScore}`;
+    plate.feedbackColor = config.feedbackColor ?? '#a7efb0';
+    plate.missFeedback = config.missFeedback ?? 'Fallo';
+    plate.countsAsMiss = config.countsAsMiss ?? true;
+    plate.countsTowardHits = config.countsTowardHits ?? true;
+    plate.modifiesDifficulty = config.modifiesDifficulty ?? true;
+    plate.isRightPlate = config.isRightPlate ?? false;
+    plate.isSpecialPlate = config.isSpecialPlate ?? false;
+    plate.isFinalShip = false;
+    plate.usesRoundSpeedMultiplier = true;
+
+    return plate;
+  }
+
+  getRightTravelLimit() {
+    return Math.max(this.scale.width + PLATE_EXIT_MARGIN, RIGHT_PLATE_SPAWN_POINT.x);
+  }
+
+  getBackgroundPoint(sourceX, sourceY) {
+    if (!this.background?.texture) {
+      return { x: sourceX, y: sourceY };
+    }
+
+    const originX = this.background.x - (this.background.displayWidth * 0.5);
+    const originY = this.background.y - (this.background.displayHeight * 0.5);
+    const normalizedX = sourceX / this.background.width;
+    const normalizedY = sourceY / this.background.height;
+
+    return {
+      x: originX + (normalizedX * this.background.displayWidth),
+      y: originY + (normalizedY * this.background.displayHeight)
+    };
+  }
+
+  getShipFlightY() {
+    return Phaser.Math.Clamp(this.scale.height * 0.24, 136, 240);
+  }
+
+  spawnFinalShip() {
+    const flightY = this.getShipFlightY();
+    const startX = -ALIEN_SHIP_MARGIN;
+    const endX = this.getRightTravelLimit() + ALIEN_SHIP_MARGIN;
+    const travelDistance = endX - startX;
+    const ship = new BonusShipPrefab(this, startX, flightY, {
+      startX,
+      startY: flightY,
+      endX,
+      endY: flightY,
+      controlX: (startX + endX) * 0.5,
+      controlY: Math.max(84, flightY - 34),
+      travelDuration: travelDistance / ALIEN_SHIP_SPEED,
+      scale: ALIEN_SHIP_SCALE
+    });
+
+    ship.setDepth(1.6);
+    ship.hitScore = ALIEN_SHIP_SCORE;
+    ship.feedbackMessage = `Nave extraterrestre +${ALIEN_SHIP_SCORE}`;
+    ship.feedbackColor = '#ffe4a6';
+    ship.missFeedback = 'La nave se escapa';
+    ship.countsAsMiss = false;
+    ship.countsTowardHits = false;
+    ship.modifiesDifficulty = false;
+    ship.isRightPlate = false;
+    ship.isFinalShip = true;
+    ship.usesRoundSpeedMultiplier = false;
+
+    this.finalShipSpawned = true;
+    this.activeTargets.push(ship);
+    this.setFeedback('Nave final en el cielo', '#ffe4a6');
   }
 
   update(_time, delta) {
-    const deltaSeconds = (delta / 1000) * this.plateSpeedMultiplier;
+    const baseDeltaSeconds = delta / 1000;
+    const scaledDeltaSeconds = baseDeltaSeconds * this.plateSpeedMultiplier;
 
-    for (let index = this.activePlates.length - 1; index >= 0; index -= 1) {
-      const plate = this.activePlates[index];
+    for (let index = this.activeTargets.length - 1; index >= 0; index -= 1) {
+      const target = this.activeTargets[index];
+      const deltaSeconds = target.usesRoundSpeedMultiplier ? scaledDeltaSeconds : baseDeltaSeconds;
 
-      plate.advance(deltaSeconds);
+      target.advance(deltaSeconds);
     }
 
     this.updateShootZoneTracking();
 
-    for (let index = this.activePlates.length - 1; index >= 0; index -= 1) {
-      const plate = this.activePlates[index];
+    for (let index = this.activeTargets.length - 1; index >= 0; index -= 1) {
+      const target = this.activeTargets[index];
 
-      this.updatePlateShotWindow(plate);
+      this.updateTargetShotWindow(target);
 
-      if (!plate.hasExitedLeftBoundary()) {
+      if (!target.hasExitedPlayfield(this.scale.width)) {
         continue;
       }
 
-      this.destroyPlateAt(index);
+      this.destroyTargetAt(index);
     }
+
+    this.checkRoundResolution();
   }
 
-  updatePlateShotWindow(plate) {
-    const isInsideShootZone = this.isPlateInsideAnyShootZone(plate);
+  updateTargetShotWindow(target) {
+    const isInsideShootZone = this.isTargetInsideAnyShootZone(target);
 
     if (isInsideShootZone) {
-      plate.markShootZoneEntry();
+      target.markShootZoneEntry();
       return;
     }
 
-    if (!plate.hasRegisteredMiss && !plate.wasHit && this.hasPlatePassedShootZones(plate)) {
-      this.registerMiss(plate);
+    if (!target.hasRegisteredMiss && !target.wasHit && this.hasTargetPassedShootZones(target)) {
+      this.registerMiss(target);
     }
   }
 
@@ -354,37 +570,37 @@ export class GameScene extends Phaser.Scene {
 
     const homeY = this.getShootZoneHomeY();
 
-    if (this.activePlates.length === 0) {
+    if (this.activeTargets.length === 0) {
       this.leftShootZone.y = homeY;
       this.rightShootZone.y = homeY;
       return;
     }
 
-    const leftPlate = this.getClosestPlateForZone(this.leftShootZone);
-    const rightPlate = this.getClosestPlateForZone(this.rightShootZone);
+    const leftTarget = this.getClosestTargetForZone(this.leftShootZone);
+    const rightTarget = this.getClosestTargetForZone(this.rightShootZone);
 
-    this.leftShootZone.y = leftPlate ? this.getClampedShootZoneY(leftPlate.y) : homeY;
-    this.rightShootZone.y = rightPlate ? this.getClampedShootZoneY(rightPlate.y) : homeY;
+    this.leftShootZone.y = leftTarget ? this.getClampedShootZoneY(leftTarget.y) : homeY;
+    this.rightShootZone.y = rightTarget ? this.getClampedShootZoneY(rightTarget.y) : homeY;
   }
 
-  getClosestPlateForZone(zone) {
+  getClosestTargetForZone(zone) {
     if (!zone) {
       return null;
     }
 
-    return this.activePlates.reduce((closestPlate, plate) => {
-      if (!closestPlate) {
-        return plate;
+    return this.activeTargets.reduce((closestTarget, target) => {
+      if (!closestTarget) {
+        return target;
       }
 
-      const currentDistance = Math.abs(plate.x - zone.x);
-      const closestDistance = Math.abs(closestPlate.x - zone.x);
+      const currentDistance = Math.abs(target.x - zone.x);
+      const closestDistance = Math.abs(closestTarget.x - zone.x);
 
       if (currentDistance < closestDistance) {
-        return plate;
+        return target;
       }
 
-      return closestPlate;
+      return closestTarget;
     }, null);
   }
 
@@ -407,8 +623,8 @@ export class GameScene extends Phaser.Scene {
     return Phaser.Math.Clamp(targetY, halfSize, this.scale.height - halfSize);
   }
 
-  hasPlatePassedShootZones(plate) {
-    if (!plate || !this.leftShootZone || !this.rightShootZone) {
+  hasTargetPassedShootZones(target) {
+    if (!target || !this.leftShootZone || !this.rightShootZone) {
       return false;
     }
 
@@ -416,23 +632,31 @@ export class GameScene extends Phaser.Scene {
       this.leftShootZone.x - (this.leftShootZone.displayWidth * 0.5),
       this.rightShootZone.x - (this.rightShootZone.displayWidth * 0.5)
     );
-    const plateBounds = plate.getBoundsRect();
+    const rightmostZoneEdge = Math.max(
+      this.leftShootZone.x + (this.leftShootZone.displayWidth * 0.5),
+      this.rightShootZone.x + (this.rightShootZone.displayWidth * 0.5)
+    );
+    const targetBounds = target.getBoundsRect();
 
-    return plateBounds.right < leftmostZoneEdge;
+    if (target.movementDirection < 0) {
+      return targetBounds.right < leftmostZoneEdge;
+    }
+
+    return targetBounds.left > rightmostZoneEdge;
   }
 
-  destroyPlateAt(index) {
-    const [plate] = this.activePlates.splice(index, 1);
-    plate?.destroy();
+  destroyTargetAt(index) {
+    const [target] = this.activeTargets.splice(index, 1);
+    target?.destroy();
   }
 
-  isPlateInsideAnyShootZone(plate) {
-    return this.doesPlateOverlapZone(plate, this.leftShootZone)
-      || this.doesPlateOverlapZone(plate, this.rightShootZone);
+  isTargetInsideAnyShootZone(target) {
+    return this.doesTargetOverlapZone(target, this.leftShootZone)
+      || this.doesTargetOverlapZone(target, this.rightShootZone);
   }
 
-  doesPlateOverlapZone(plate, zone) {
-    if (!plate || !zone) {
+  doesTargetOverlapZone(target, zone) {
+    if (!target || !zone) {
       return false;
     }
 
@@ -443,32 +667,74 @@ export class GameScene extends Phaser.Scene {
       zone.displayHeight
     );
 
-    return Phaser.Geom.Intersects.RectangleToRectangle(plate.getBoundsRect(), zoneBounds);
+    return Phaser.Geom.Intersects.RectangleToRectangle(target.getBoundsRect(), zoneBounds);
   }
 
   registerHit(index) {
-    const plate = this.activePlates[index];
+    const target = this.activeTargets[index];
 
-    if (!plate) {
+    if (!target) {
       return;
     }
 
-    plate.markHit();
-    this.score += HIT_SCORE;
-    this.hits += 1;
-    this.increaseDifficulty();
-    this.spawnBrokenPlateEffect(plate.x, plate.y);
-    this.setFeedback('Acierto +100', '#a7efb0');
+    target.markHit();
+    this.score += target.hitScore ?? HIT_SCORE;
+
+    if (target.countsTowardHits) {
+      this.hits += 1;
+    }
+
+    if (target.modifiesDifficulty) {
+      this.increaseDifficulty();
+    }
+
+    this.spawnBrokenPlateEffect(target.x, target.y);
+    this.setFeedback(target.feedbackMessage, target.feedbackColor);
     this.updateHud();
-    this.destroyPlateAt(index);
+    this.destroyTargetAt(index);
+    this.checkRoundResolution();
   }
 
-  registerMiss(plate) {
-    plate.markMissRegistered();
+  registerMiss(target) {
+    target.markMissRegistered();
+
+    if (!target.countsAsMiss) {
+      this.setFeedback(target.missFeedback, '#ffd2a6');
+      return;
+    }
+
     this.misses += 1;
+
+    if (target.isRightPlate) {
+      this.currentRightBlockMisses += 1;
+    }
+
+    if (!target.isFinalShip) {
+      this.specialPlatesSpawned = 0;
+      this.consecutivePerfectBlocks = 0;
+    }
+
     this.resetDifficulty();
-    this.setFeedback('Fallo', '#ffb6b6');
+    this.setFeedback(target.missFeedback, '#ffb6b6');
     this.updateHud();
+  }
+
+  checkRoundResolution() {
+    if (this.roundEnding || !this.sequenceComplete || this.activeTargets.length > 0) {
+      return;
+    }
+
+    if (!this.finalShipSpawned) {
+      if (this.hits === TOTAL_PLATES && this.misses === 0) {
+        this.spawnFinalShip();
+        return;
+      }
+
+      this.finishRound();
+      return;
+    }
+
+    this.finishRound();
   }
 
   increaseDifficulty() {
@@ -525,18 +791,23 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.feedbackTimer = this.time.delayedCall(SHOT_FEEDBACK_DURATION, () => {
-      this.feedbackText?.setText('Rompe los platos dentro del cuadrado rojo');
+      this.feedbackText?.setText(DEFAULT_FEEDBACK);
       this.feedbackText?.setColor('#f5f1d6');
       this.feedbackTimer = null;
     });
   }
 
-  destroyAllPlates() {
-    this.activePlates.forEach((plate) => plate.destroy());
-    this.activePlates = [];
+  destroyAllTargets() {
+    this.activeTargets.forEach((target) => target.destroy());
+    this.activeTargets = [];
   }
 
   finishRound() {
+    if (this.roundEnding) {
+      return;
+    }
+
+    this.roundEnding = true;
     this.registry.set('lastScore', this.score);
     this.registry.set('lastDuration', this.elapsedSeconds);
     this.registry.set('lastHits', this.hits);
@@ -551,11 +822,11 @@ export class GameScene extends Phaser.Scene {
 
   updateHud() {
     if (this.scoreText) {
-      this.scoreText.setText(`Puntuacion: ${this.score}`);
+      this.scoreText.setText(`Puntuacion: ${this.score} · Bloque derecho perfecto: ${this.currentRightBlockMisses === 0 ? 'si' : 'no'}`);
     }
 
     if (this.statusText) {
-      this.statusText.setText(`Tiempo: ${this.elapsedSeconds}s · Aciertos: ${this.hits} · Fallos: ${this.misses}`);
+      this.statusText.setText(`Tiempo: ${this.elapsedSeconds}s · Platos: ${Math.min(this.hits + this.misses, TOTAL_PLATES)}/${TOTAL_PLATES} · Aciertos: ${this.hits} · Fallos: ${this.misses}`);
     }
   }
 
@@ -620,16 +891,13 @@ export class GameScene extends Phaser.Scene {
       this.roundTimer = null;
     }
 
-    if (this.plateSpawnTimer) {
-      this.plateSpawnTimer.remove(false);
-      this.plateSpawnTimer = null;
-    }
+    this.stopPlateSpawner();
 
     if (this.feedbackTimer) {
       this.feedbackTimer.remove(false);
       this.feedbackTimer = null;
     }
 
-    this.destroyAllPlates();
+    this.destroyAllTargets();
   }
 }
