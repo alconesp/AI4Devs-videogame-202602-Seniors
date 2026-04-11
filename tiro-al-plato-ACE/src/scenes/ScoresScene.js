@@ -64,51 +64,9 @@ export class ScoresScene extends Phaser.Scene {
   create() {
     this.background = this.add.image(0, 0, textureKeys.background).setOrigin(0.5);
 
-    const panel = this.add.rectangle(0, 0, 540, 374, 0x102236, 0.84)
-      .setStrokeStyle(2, 0xf5f1d6, 0.85);
-
-    const title = this.add.text(0, -82, 'Puntuaciones', {
-      fontFamily: 'Trebuchet MS',
-      fontSize: '34px',
-      fontStyle: 'bold',
-      color: '#f5f1d6'
-    }).setOrigin(0.5);
-
-    const summary = this.add.text(0, -18, `Ultima ronda: ${this.score} puntos en ${this.duration}s`, {
-      fontFamily: 'Trebuchet MS',
-      fontSize: '20px',
-      color: '#ffffff',
-      align: 'center'
-    }).setOrigin(0.5);
-
-    const stats = this.add.text(0, 26, `Aciertos: ${this.hits} · Fallos: ${this.misses}`, {
-      fontFamily: 'Trebuchet MS',
-      fontSize: '20px',
-      color: '#dbe9f4',
-      align: 'center'
-    }).setOrigin(0.5);
-
-    this.rankingStatusText = this.add.text(0, 78, this.getRankingStatusMessage(), {
-      fontFamily: 'Trebuchet MS',
-      fontSize: '18px',
-      color: this.qualifiesForRanking ? '#f5f1d6' : '#dbe9f4',
-      align: 'center',
-      wordWrap: { width: 430 }
-    }).setOrigin(0.5);
-
-    const replayButton = this.createButton('Jugar otra vez', () => {
-      this.scene.start(sceneKeys.preloader, {
-        nextScene: sceneKeys.game
-      });
-    });
-    replayButton.setY(136);
-
-    const menuButton = this.createButton('Volver al menu', () => {
-      this.scene.start(sceneKeys.mainMenu);
-    });
-    menuButton.setY(196);
-
-    this.layout = this.add.container(0, 0, [panel, title, summary, stats, this.rankingStatusText, replayButton, menuButton]);
+    if (!this.qualifiesForRanking) {
+      this.createResultsLayout();
+    }
 
     this.onResize = this.handleResize.bind(this);
     this.scale.on('resize', this.onResize);
@@ -118,6 +76,54 @@ export class ScoresScene extends Phaser.Scene {
     if (this.qualifiesForRanking) {
       this.openRankingPopup();
     }
+  }
+
+  createResultsLayout() {
+    const panel = this.add.rectangle(0, 0, 560, 500, 0x102236, 0.84)
+      .setStrokeStyle(2, 0xf5f1d6, 0.85);
+
+    const title = this.add.text(0, -110, 'Puntuaciones', {
+      fontFamily: 'Trebuchet MS',
+      fontSize: '34px',
+      fontStyle: 'bold',
+      color: '#f5f1d6'
+    }).setOrigin(0.5);
+
+    const summary = this.add.text(0, -38, `Ultima ronda: ${this.score} puntos en ${this.duration}s`, {
+      fontFamily: 'Trebuchet MS',
+      fontSize: '20px',
+      color: '#ffffff',
+      align: 'center'
+    }).setOrigin(0.5);
+
+    const stats = this.add.text(0, 8, `Aciertos: ${this.hits} · Fallos: ${this.misses}`, {
+      fontFamily: 'Trebuchet MS',
+      fontSize: '20px',
+      color: '#dbe9f4',
+      align: 'center'
+    }).setOrigin(0.5);
+
+    this.rankingStatusText = this.add.text(0, 68, this.getRankingStatusMessage(), {
+      fontFamily: 'Trebuchet MS',
+      fontSize: '18px',
+      color: '#dbe9f4',
+      align: 'center',
+      wordWrap: { width: 430 }
+    }).setOrigin(0.5);
+
+    const replayButton = this.createButton('Jugar otra vez', () => {
+      this.scene.start(sceneKeys.preloader, {
+        nextScene: sceneKeys.game
+      });
+    });
+    replayButton.setY(144);
+
+    const menuButton = this.createButton('Volver al menu', () => {
+      this.scene.start(sceneKeys.mainMenu);
+    });
+    menuButton.setY(198);
+
+    this.layout = this.add.container(0, 0, [panel, title, summary, stats, this.rankingStatusText, replayButton, menuButton]);
   }
 
   createButton(label, onClick) {
@@ -181,7 +187,7 @@ export class ScoresScene extends Phaser.Scene {
       .setInteractive()
       .setDepth(10);
 
-    const panel = this.add.rectangle(0, 0, 432, 270, 0x102236, 0.96)
+    const panel = this.add.rectangle(0, 0, 500, 360, 0x102236, 0.96)
       .setStrokeStyle(2, 0xe5b75c, 0.92);
 
     const title = this.add.text(0, -82, 'Nuevo Top 10', {
@@ -191,18 +197,18 @@ export class ScoresScene extends Phaser.Scene {
       color: '#f5f1d6'
     }).setOrigin(0.5);
 
-    const message = this.add.text(0, -26, `Tu ronda de ${this.score} puntos ha entrado en el ranking. Ajusta tus 3 iniciales con flechas y confirma con Espacio o Enter.`, {
+    const message = this.add.text(0, -42, `Tu ronda de ${this.score} puntos ha entrado en el ranking. Ajusta tus 3 iniciales con flechas y confirma con Espacio o Enter.`, {
       fontFamily: 'Trebuchet MS',
       fontSize: '18px',
       color: '#ffffff',
       align: 'center',
-      wordWrap: { width: 344 }
+      wordWrap: { width: 390 }
     }).setOrigin(0.5);
 
-    const initialsFrame = this.add.rectangle(0, 34, 226, 62, 0x09131f, 0.94)
+    const initialsFrame = this.add.rectangle(0, 42, 226, 62, 0x09131f, 0.94)
       .setStrokeStyle(2, 0xf5f1d6, 0.7);
 
-    this.rankingInitialsSlots = [-58, 0, 58].map((x) => this.add.text(x, 34, '_', {
+    this.rankingInitialsSlots = [-58, 0, 58].map((x) => this.add.text(x, 42, '_', {
       fontFamily: 'Trebuchet MS',
       fontSize: '34px',
       fontStyle: 'bold',
@@ -210,17 +216,18 @@ export class ScoresScene extends Phaser.Scene {
       align: 'center'
     }).setOrigin(0.5));
 
-    const helper = this.add.text(0, 82, 'Arriba/abajo cambia letra. Enter o Espacio confirma. Backspace retrocede.', {
+    const helper = this.add.text(0, 104, 'Arriba/abajo cambia letra. Enter o Espacio confirma. Backspace retrocede.', {
       fontFamily: 'Trebuchet MS',
       fontSize: '15px',
       color: '#dbe9f4',
-      align: 'center'
+      align: 'center',
+      wordWrap: { width: 360 }
     }).setOrigin(0.5);
 
     const saveButton = this.createButton('Guardar marca', () => {
       this.submitRankingEntry();
     });
-    saveButton.setY(124);
+    saveButton.setY(142);
 
     this.rankingModal = this.add.container(0, 0, [
       panel,
@@ -354,7 +361,7 @@ export class ScoresScene extends Phaser.Scene {
 
     const initials = this.normalizeRankingInitials(this.getRankingInitialsFromSelection() || DEFAULT_INITIALS);
 
-    saveRankingEntry({
+    const { savedEntry } = saveRankingEntry({
       initials,
       score: this.score,
       duration: this.duration,
@@ -365,13 +372,11 @@ export class ScoresScene extends Phaser.Scene {
     this.rankingInitials = initials;
     this.hasSavedRankingEntry = true;
     this.registry.set('lastRankingInitials', initials);
+    this.registry.set('pendingRankingHighlightEntry', savedEntry);
 
-    if (this.rankingStatusText) {
-      this.rankingStatusText.setText(this.getRankingStatusMessage());
-      this.rankingStatusText.setColor('#a7efb0');
-    }
-
-    this.closeRankingPopup();
+    this.scene.start(sceneKeys.ranking, {
+      highlightEntry: savedEntry
+    });
   }
 
   closeRankingPopup() {

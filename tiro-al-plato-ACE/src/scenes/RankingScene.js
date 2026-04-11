@@ -16,14 +16,19 @@ export class RankingScene extends Phaser.Scene {
     this.onResize = null;
     this.rankingEntries = [];
     this.hasPlayerEntries = false;
+    this.highlightEntry = null;
+    this.highlightTween = null;
   }
 
-  init() {
+  init(data) {
     this.background = null;
     this.layout = null;
     this.onResize = null;
     this.rankingEntries = getStoredRankingEntries();
     this.hasPlayerEntries = this.rankingEntries.some((entry) => !entry.isDefault);
+    this.highlightEntry = data?.highlightEntry ?? this.registry.get('pendingRankingHighlightEntry') ?? null;
+    this.highlightTween = null;
+    this.registry.set('pendingRankingHighlightEntry', null);
   }
 
   create() {
@@ -127,39 +132,76 @@ export class RankingScene extends Phaser.Scene {
 
     return visibleEntries.map((entry, index) => {
       const y = ROW_START_Y + (index * ROW_HEIGHT);
+      const isHighlighted = this.isHighlightedEntry(entry);
       const rowTint = index % 2 === 0 ? 0x132b44 : 0x0f2233;
       const isMutedRow = entry.isPlaceholder || entry.isDefault;
-      const rowAlpha = entry.isPlaceholder ? 0.3 : (entry.isDefault ? 0.42 : 0.62);
-      const textColor = isMutedRow ? '#d0d7de' : '#ffffff';
-
-      return this.add.container(0, y, [
-        this.add.rectangle(0, 0, 500, 38, rowTint, rowAlpha)
-          .setStrokeStyle(1, 0xf5f1d6, entry.isPlaceholder ? 0.18 : 0.24),
-        this.add.text(-208, 0, `${index + 1}`, {
+      const rowAlpha = isHighlighted ? 0.88 : (entry.isPlaceholder ? 0.3 : (entry.isDefault ? 0.42 : 0.62));
+      const textColor = isHighlighted ? '#fff6c7' : (isMutedRow ? '#d0d7de' : '#ffffff');
+      const accentColor = isHighlighted ? 0xe5b75c : 0xf5f1d6;
+      const secondaryTextColor = isHighlighted ? '#ffe18f' : (isMutedRow ? '#c9d3dc' : '#dbe9f4');
+      const rowBackground = this.add.rectangle(0, 0, 500, 38, isHighlighted ? 0x5b4313 : rowTint, rowAlpha)
+        .setStrokeStyle(isHighlighted ? 2 : 1, accentColor, isHighlighted ? 0.92 : (entry.isPlaceholder ? 0.18 : 0.24));
+      const glow = isHighlighted
+        ? this.add.rectangle(0, 0, 510, 46, 0xe5b75c, 0.18)
+          .setStrokeStyle(2, 0xffefb0, 0.52)
+        : null;
+      const rankText = this.add.text(-208, 0, `${index + 1}`, {
           fontFamily: 'Trebuchet MS',
           fontSize: '18px',
           fontStyle: 'bold',
-          color: '#f5f1d6'
-        }).setOrigin(0.5),
-        this.add.text(-116, 0, entry.initials, {
+          color: isHighlighted ? '#fff6c7' : '#f5f1d6'
+        }).setOrigin(0.5);
+      const initialsText = this.add.text(-116, 0, entry.initials, {
           fontFamily: 'Trebuchet MS',
           fontSize: '18px',
           fontStyle: 'bold',
           color: textColor
-        }).setOrigin(0.5),
-        this.add.text(80, 0, this.formatScore(entry.score), {
+        }).setOrigin(0.5);
+      const scoreText = this.add.text(80, 0, this.formatScore(entry.score), {
           fontFamily: 'Trebuchet MS',
           fontSize: '18px',
           fontStyle: 'bold',
           color: textColor
-        }).setOrigin(0.5),
-        this.add.text(202, 0, this.formatDuration(entry.duration), {
+        }).setOrigin(0.5);
+      const durationText = this.add.text(202, 0, this.formatDuration(entry.duration), {
           fontFamily: 'Trebuchet MS',
           fontSize: '17px',
-          color: isMutedRow ? '#c9d3dc' : '#dbe9f4'
-        }).setOrigin(0.5)
-      ]);
+          color: secondaryTextColor
+        }).setOrigin(0.5);
+
+      if (isHighlighted) {
+        initialsText.setShadow(0, 0, '#ffe18f', 12, true, true);
+        scoreText.setShadow(0, 0, '#ffe18f', 12, true, true);
+      }
+
+      const rowChildren = glow
+        ? [glow, rowBackground, rankText, initialsText, scoreText, durationText]
+        : [rowBackground, rankText, initialsText, scoreText, durationText];
+      const row = this.add.container(0, y, rowChildren);
+
+      if (glow) {
+        this.highlightTween = this.tweens.add({
+          targets: glow,
+          alpha: 0.52,
+          duration: 540,
+          ease: 'Sine.easeInOut',
+          yoyo: true,
+          repeat: -1
+        });
+      }
+
+      return row;
     });
+  }
+
+  isHighlightedEntry(entry) {
+    if (!this.highlightEntry || entry.isPlaceholder) {
+      return false;
+    }
+
+    return entry.createdAt === this.highlightEntry.createdAt
+      && entry.initials === this.highlightEntry.initials
+      && entry.score === this.highlightEntry.score;
   }
 
   createButton(label, onClick) {
@@ -244,6 +286,11 @@ export class RankingScene extends Phaser.Scene {
   }
 
   handleShutdown() {
+    if (this.highlightTween) {
+      this.highlightTween.remove();
+      this.highlightTween = null;
+    }
+
     if (this.onResize) {
       this.scale.off('resize', this.onResize);
       this.onResize = null;

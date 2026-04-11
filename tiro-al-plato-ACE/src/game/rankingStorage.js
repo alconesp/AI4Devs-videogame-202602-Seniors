@@ -153,33 +153,39 @@ export function wouldScoreEnterRanking(score) {
 export function saveRankingEntry(entry) {
   const storage = getStorage();
   const fallbackEntries = buildDefaultRankingEntries();
+  const savedEntry = normalizeEntry({
+    ...entry,
+    createdAt: Date.now(),
+    isDefault: false
+  }, fallbackEntries.length);
 
   if (!storage) {
-    return buildRankingEntries([
+    return {
+      entries: buildRankingEntries([
       ...fallbackEntries,
-      normalizeEntry({
-        ...entry,
-        createdAt: Date.now(),
-        isDefault: false
-      }, fallbackEntries.length)
-    ]);
+        savedEntry
+      ]),
+      savedEntry
+    };
   }
 
   const rankingEntries = getStoredRankingEntries();
   const nextEntries = buildRankingEntries([
     ...rankingEntries,
-    normalizeEntry({
-      ...entry,
-      createdAt: Date.now(),
-      isDefault: false
-    }, rankingEntries.length)
+    savedEntry
   ]);
 
   if (!persistRankingEntries(storage, nextEntries)) {
-    return rankingEntries;
+    return {
+      entries: rankingEntries,
+      savedEntry: null
+    };
   }
 
-  return nextEntries;
+  return {
+    entries: nextEntries,
+    savedEntry
+  };
 }
 
 export { DEFAULT_INITIALS, MAX_RANKING_ENTRIES };
