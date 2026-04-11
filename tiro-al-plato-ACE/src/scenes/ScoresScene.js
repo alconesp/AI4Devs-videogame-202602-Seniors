@@ -9,6 +9,8 @@ import {
 } from '../game/rankingStorage.js';
 import { sceneKeys } from './sceneKeys.js';
 
+const ARCADE_INITIALS_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
 export class ScoresScene extends Phaser.Scene {
   constructor() {
     super(sceneKeys.scores);
@@ -27,7 +29,11 @@ export class ScoresScene extends Phaser.Scene {
     this.rankingStatusText = null;
     this.rankingBackdrop = null;
     this.rankingModal = null;
-    this.rankingInitialsText = null;
+    this.rankingInitialsSlots = [];
+    this.rankingLetterIndexes = [0, 0, 0];
+    this.rankingActiveIndex = 0;
+    this.rankingConfirmedCount = 0;
+    this.rankingBlinkTween = null;
     this.onPopupKeyDown = null;
   }
 
@@ -47,7 +53,11 @@ export class ScoresScene extends Phaser.Scene {
     this.rankingStatusText = null;
     this.rankingBackdrop = null;
     this.rankingModal = null;
-    this.rankingInitialsText = null;
+    this.rankingInitialsSlots = [];
+    this.rankingLetterIndexes = this.buildRankingLetterIndexes(this.rankingInitials || DEFAULT_INITIALS);
+    this.rankingActiveIndex = 0;
+    this.rankingConfirmedCount = 0;
+    this.rankingBlinkTween = null;
     this.onPopupKeyDown = null;
   }
 
@@ -132,8 +142,21 @@ export class ScoresScene extends Phaser.Scene {
   normalizeRankingInitials(initials) {
     return String(initials ?? '')
       .toUpperCase()
-      .replace(/[^A-Z0-9]/g, '')
-      .slice(0, 3);
+      .replace(/[^A-Z]/g, '')
+      .slice(0, 3)
+      .padEnd(3, 'A');
+  }
+
+  buildRankingLetterIndexes(initials) {
+    return this.normalizeRankingInitials(initials)
+      .split('')
+      .map((letter) => Math.max(0, ARCADE_INITIALS_ALPHABET.indexOf(letter)));
+  }
+
+  getRankingInitialsFromSelection() {
+    return this.rankingLetterIndexes
+      .map((index) => ARCADE_INITIALS_ALPHABET[index] ?? 'A')
+      .join('');
   }
 
   getRankingStatusMessage() {
@@ -168,7 +191,7 @@ export class ScoresScene extends Phaser.Scene {
       color: '#f5f1d6'
     }).setOrigin(0.5);
 
-    const message = this.add.text(0, -26, `Tu ronda de ${this.score} puntos ha entrado en el ranking. Escribe 3 iniciales y pulsa Enter.`, {
+    const message = this.add.text(0, -26, `Tu ronda de ${this.score} puntos ha entrado en el ranking. Ajusta tus 3 iniciales con flechas y confirma con Espacio o Enter.`, {
       fontFamily: 'Trebuchet MS',
       fontSize: '18px',
       color: '#ffffff',
@@ -179,15 +202,15 @@ export class ScoresScene extends Phaser.Scene {
     const initialsFrame = this.add.rectangle(0, 34, 226, 62, 0x09131f, 0.94)
       .setStrokeStyle(2, 0xf5f1d6, 0.7);
 
-    this.rankingInitialsText = this.add.text(0, 34, '', {
+    this.rankingInitialsSlots = [-58, 0, 58].map((x) => this.add.text(x, 34, '_', {
       fontFamily: 'Trebuchet MS',
       fontSize: '34px',
       fontStyle: 'bold',
       color: '#f5f1d6',
       align: 'center'
-    }).setOrigin(0.5);
+    }).setOrigin(0.5));
 
-    const helper = this.add.text(0, 82, 'Letras y numeros. Backspace borra.', {
+    const helper = this.add.text(0, 82, 'Arriba/abajo cambia letra. Enter o Espacio confirma. Backspace retrocede.', {
       fontFamily: 'Trebuchet MS',
       fontSize: '15px',
       color: '#dbe9f4',
@@ -204,12 +227,12 @@ export class ScoresScene extends Phaser.Scene {
       title,
       message,
       initialsFrame,
-      this.rankingInitialsText,
+      ...this.rankingInitialsSlots,
       helper,
       saveButton
     ]).setDepth(11);
 
-    this.updateRankingInitialsText();
+    this.updateRankingInitialsDisplay();
 
     this.onPopupKeyDown = (event) => {
       this.handlePopupKeyDown(event);
@@ -223,31 +246,105 @@ export class ScoresScene extends Phaser.Scene {
       return;
     }
 
-    if (event.key === 'Enter') {
-      this.submitRankingEntry();
+    if (event.key === 'ArrowUp') {
+      this.shiftActiveInitial(1);
+      return;
+    }
+
+    if (event.key === 'ArrowDown') {
+      this.shiftActiveInitial(-1);
+      return;
+    }
+
+    if (event.key === 'Enter' || event.code === 'Space') {
+      this.confirmActiveInitial();
       return;
     }
 
     if (event.key === 'Backspace') {
-      this.rankingInitials = this.rankingInitials.slice(0, -1);
-      this.updateRankingInitialsText();
-      return;
+      this.goBackToPreviousInitial();
     }
-
-    if (!/^[a-z0-9]$/i.test(event.key) || this.rankingInitials.length >= 3) {
-      return;
-    }
-
-    this.rankingInitials = `${this.rankingInitials}${event.key.toUpperCase()}`;
-    this.updateRankingInitialsText();
   }
 
-  updateRankingInitialsText() {
-    if (!this.rankingInitialsText) {
+  shiftActiveInitial(direction) {
+    const nextIndex = Phaser.Math.Wrap(
+      this.rankingLetterIndexes[this.rankingActiveIndex] + direction,
+      0,
+      ARCADE_INITIALS_ALPHABET.length
+    );
+
+    this.rankingLetterIndexes[this.rankingActiveIndex] = nextIndex;
+    this.updateRankingInitialsDisplay();
+  }
+
+  confirmActiveInitial() {
+    if (this.rankingActiveIndex >= this.rankingLetterIndexes.length - 1) {
+      this.rankingConfirmedCount = this.rankingLetterIndexes.length;
+      this.submitRankingEntry();
       return;
     }
 
-    this.rankingInitialsText.setText(this.rankingInitials.padEnd(3, '_').split('').join('   '));
+    this.rankingConfirmedCount = Math.max(this.rankingConfirmedCount, this.rankingActiveIndex + 1);
+    this.rankingActiveIndex += 1;
+    this.updateRankingInitialsDisplay();
+  }
+
+  goBackToPreviousInitial() {
+    if (this.rankingActiveIndex === 0 && this.rankingConfirmedCount === 0) {
+      return;
+    }
+
+    if (this.rankingConfirmedCount === this.rankingLetterIndexes.length) {
+      this.rankingConfirmedCount -= 1;
+      this.rankingActiveIndex = this.rankingLetterIndexes.length - 1;
+    } else {
+      this.rankingActiveIndex = Math.max(0, this.rankingActiveIndex - 1);
+      this.rankingConfirmedCount = this.rankingActiveIndex;
+    }
+
+    this.updateRankingInitialsDisplay();
+  }
+
+  updateRankingInitialsDisplay() {
+    if (!this.rankingInitialsSlots.length) {
+      return;
+    }
+
+    this.rankingInitialsSlots.forEach((slot, index) => {
+      const letter = ARCADE_INITIALS_ALPHABET[this.rankingLetterIndexes[index]] ?? 'A';
+      const isConfirmed = index < this.rankingConfirmedCount;
+      const isActive = index === this.rankingActiveIndex && this.rankingConfirmedCount < this.rankingLetterIndexes.length;
+      const isPending = index > this.rankingActiveIndex;
+
+      slot.setText(isPending ? '_' : letter);
+      slot.setColor(isActive ? '#e5b75c' : (isConfirmed ? '#f5f1d6' : '#dbe9f4'));
+      slot.setScale(isActive ? 1.12 : 1);
+      slot.setAlpha(1);
+    });
+
+    this.refreshRankingBlink();
+  }
+
+  refreshRankingBlink() {
+    if (this.rankingBlinkTween) {
+      this.rankingBlinkTween.remove();
+      this.rankingBlinkTween = null;
+    }
+
+    const activeSlot = this.rankingInitialsSlots[this.rankingActiveIndex];
+
+    if (!activeSlot || this.rankingConfirmedCount >= this.rankingLetterIndexes.length) {
+      return;
+    }
+
+    this.rankingBlinkTween = this.tweens.add({
+      targets: activeSlot,
+      alpha: 0.24,
+      duration: 220,
+      ease: 'Linear',
+      yoyo: true,
+      repeat: -1
+    });
   }
 
   submitRankingEntry() {
@@ -255,7 +352,7 @@ export class ScoresScene extends Phaser.Scene {
       return;
     }
 
-    const initials = this.normalizeRankingInitials(this.rankingInitials || DEFAULT_INITIALS);
+    const initials = this.normalizeRankingInitials(this.getRankingInitialsFromSelection() || DEFAULT_INITIALS);
 
     saveRankingEntry({
       initials,
@@ -283,9 +380,14 @@ export class ScoresScene extends Phaser.Scene {
       this.onPopupKeyDown = null;
     }
 
+    if (this.rankingBlinkTween) {
+      this.rankingBlinkTween.remove();
+      this.rankingBlinkTween = null;
+    }
+
     this.rankingModal?.destroy();
     this.rankingModal = null;
-    this.rankingInitialsText = null;
+    this.rankingInitialsSlots = [];
 
     this.rankingBackdrop?.destroy();
     this.rankingBackdrop = null;
