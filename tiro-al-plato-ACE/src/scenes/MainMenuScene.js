@@ -163,10 +163,10 @@ export class MainMenuScene extends Phaser.Scene {
     const panel = this.add.rectangle(0, 0, 612, 564, 0x102236, 0.9)
       .setStrokeStyle(2, 0xf5f1d6, 0.88);
 
-    const headerBar = this.add.rectangle(0, -190, 520, 34, 0xe5b75c, 0.14)
+    const headerBar = this.add.rectangle(0, -210, 520, 34, 0xe5b75c, 0.14)
       .setStrokeStyle(1, 0xe5b75c, 0.45);
 
-    const title = this.add.text(0, -190, 'Configuracion de audio', {
+    const title = this.add.text(0, -210, 'Configuración de audio', {
       fontFamily: 'Trebuchet MS',
       fontSize: '34px',
       fontStyle: 'bold',
@@ -197,7 +197,7 @@ export class MainMenuScene extends Phaser.Scene {
       fillKey: 'sfx'
     });
 
-    const previewLabel = this.add.text(0, 172, 'Preview', {
+    const previewLabel = this.add.text(0, 152, 'Preview', {
       fontFamily: 'Trebuchet MS',
       fontSize: '22px',
       fontStyle: 'bold',
@@ -207,28 +207,28 @@ export class MainMenuScene extends Phaser.Scene {
     const shotPreviewButton = this.createAudioButton('Disparo', () => {
       this.audioPreviewController?.playShot();
     }, 118);
-    shotPreviewButton.setPosition(-126, 220);
+    shotPreviewButton.setPosition(-126, 200);
 
     const impactPreviewButton = this.createAudioButton('Impacto', () => {
       this.audioPreviewController?.playImpact();
     }, 118);
-    impactPreviewButton.setPosition(0, 220);
+    impactPreviewButton.setPosition(0, 200);
 
     const missPreviewButton = this.createAudioButton('Fallo', () => {
       this.audioPreviewController?.playMiss();
     }, 118);
-    missPreviewButton.setPosition(126, 220);
+    missPreviewButton.setPosition(126, 200);
 
     this.audioMuteButton = this.createAudioButton('Silencio', () => {
       this.toggleMute();
     }, 158);
-    this.audioMuteButton.setPosition(-122, 272);
+    this.audioMuteButton.setPosition(-122, 252);
     this.audioMuteButtonLabel = this.audioMuteButton.list[1];
 
     const backButton = this.createAudioButton('Volver al menú', () => {
       this.showMainMenuView();
     }, 198);
-    backButton.setPosition(112, 272);
+    backButton.setPosition(112, 252);
 
     this.audioConfigPanelContent = this.add.container(0, 0, [
       outerGlow,
