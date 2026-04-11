@@ -13,21 +13,25 @@ export class RankingScene extends Phaser.Scene {
     super(sceneKeys.ranking);
     this.background = null;
     this.layout = null;
+    this.layoutContent = null;
     this.onResize = null;
     this.rankingEntries = [];
     this.hasPlayerEntries = false;
     this.highlightEntry = null;
     this.highlightTween = null;
+    this.popupTween = null;
   }
 
   init(data) {
     this.background = null;
     this.layout = null;
+    this.layoutContent = null;
     this.onResize = null;
     this.rankingEntries = getStoredRankingEntries();
     this.hasPlayerEntries = this.rankingEntries.some((entry) => !entry.isDefault);
     this.highlightEntry = data?.highlightEntry ?? this.registry.get('pendingRankingHighlightEntry') ?? null;
     this.highlightTween = null;
+    this.popupTween = null;
     this.registry.set('pendingRankingHighlightEntry', null);
   }
 
@@ -39,6 +43,7 @@ export class RankingScene extends Phaser.Scene {
     this.scale.on('resize', this.onResize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.handleResize(this.scale.gameSize);
+    this.animatePopup();
   }
 
   createBackground() {
@@ -114,7 +119,7 @@ export class RankingScene extends Phaser.Scene {
     });
     menuButton.setY(336);
 
-    this.layout = this.add.container(0, 0, [
+    this.layoutContent = this.add.container(0, 0, [
       outerGlow,
       panel,
       accent,
@@ -125,6 +130,30 @@ export class RankingScene extends Phaser.Scene {
       footer,
       menuButton
     ]);
+
+    this.layout = this.add.container(0, 0, [this.layoutContent]);
+    this.layoutContent.setScale(0.94);
+  }
+
+  animatePopup() {
+    if (!this.layoutContent) {
+      return;
+    }
+
+    if (this.popupTween) {
+      this.popupTween.remove();
+    }
+
+    this.layoutContent.setScale(0.94);
+    this.layoutContent.setAlpha(0);
+    this.popupTween = this.tweens.add({
+      targets: this.layoutContent,
+      scaleX: 1,
+      scaleY: 1,
+      alpha: 1,
+      duration: 320,
+      ease: 'Cubic.Out'
+    });
   }
 
   createRankingRows() {
@@ -286,6 +315,11 @@ export class RankingScene extends Phaser.Scene {
   }
 
   handleShutdown() {
+    if (this.popupTween) {
+      this.popupTween.remove();
+      this.popupTween = null;
+    }
+
     if (this.highlightTween) {
       this.highlightTween.remove();
       this.highlightTween = null;

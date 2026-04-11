@@ -7,13 +7,17 @@ export class ControlsScene extends Phaser.Scene {
     super(sceneKeys.controls);
     this.background = null;
     this.layout = null;
+    this.layoutContent = null;
     this.onResize = null;
+    this.popupTween = null;
   }
 
   init() {
     this.background = null;
     this.layout = null;
+    this.layoutContent = null;
     this.onResize = null;
+    this.popupTween = null;
   }
 
   create() {
@@ -24,6 +28,7 @@ export class ControlsScene extends Phaser.Scene {
     this.scale.on('resize', this.onResize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.handleResize(this.scale.gameSize);
+    this.animatePopup();
   }
 
   createBackground() {
@@ -88,7 +93,7 @@ export class ControlsScene extends Phaser.Scene {
     });
     menuButton.setY(198);
 
-    this.layout = this.add.container(0, 0, [
+    this.layoutContent = this.add.container(0, 0, [
       panel,
       accent,
       title,
@@ -99,6 +104,30 @@ export class ControlsScene extends Phaser.Scene {
       tips,
       menuButton
     ]);
+
+    this.layout = this.add.container(0, 0, [this.layoutContent]);
+    this.layoutContent.setScale(0.94);
+  }
+
+  animatePopup() {
+    if (!this.layoutContent) {
+      return;
+    }
+
+    if (this.popupTween) {
+      this.popupTween.remove();
+    }
+
+    this.layoutContent.setScale(0.94);
+    this.layoutContent.setAlpha(0);
+    this.popupTween = this.tweens.add({
+      targets: this.layoutContent,
+      scaleX: 1,
+      scaleY: 1,
+      alpha: 1,
+      duration: 320,
+      ease: 'Cubic.Out'
+    });
   }
 
   createControlGuide({ y, icon, action, accentColor }) {
@@ -166,6 +195,11 @@ export class ControlsScene extends Phaser.Scene {
   }
 
   handleShutdown() {
+    if (this.popupTween) {
+      this.popupTween.remove();
+      this.popupTween = null;
+    }
+
     if (this.onResize) {
       this.scale.off('resize', this.onResize);
       this.onResize = null;

@@ -11,7 +11,9 @@ export class MainMenuScene extends Phaser.Scene {
     this.background = null;
     this.player = null;
     this.menuPanel = null;
+    this.menuPanelContent = null;
     this.audioConfigPanel = null;
+    this.audioConfigPanelContent = null;
     this.audioOpenButton = null;
     this.titleText = null;
     this.subtitleText = null;
@@ -28,13 +30,17 @@ export class MainMenuScene extends Phaser.Scene {
     this.audioPreviewController = null;
     this.audioSettings = getAudioSettingsFromRegistry(this.registry);
     this.onResize = null;
+    this.popupTween = null;
+    this.isTransitioning = false;
   }
 
   init() {
     this.background = null;
     this.player = null;
     this.menuPanel = null;
+    this.menuPanelContent = null;
     this.audioConfigPanel = null;
+    this.audioConfigPanelContent = null;
     this.audioOpenButton = null;
     this.titleText = null;
     this.subtitleText = null;
@@ -51,6 +57,8 @@ export class MainMenuScene extends Phaser.Scene {
     this.audioPreviewController = null;
     this.audioSettings = getAudioSettingsFromRegistry(this.registry);
     this.onResize = null;
+    this.popupTween = null;
+    this.isTransitioning = false;
   }
 
   create() {
@@ -64,6 +72,7 @@ export class MainMenuScene extends Phaser.Scene {
     this.scale.on('resize', this.onResize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.handleResize(this.scale.gameSize);
+    this.animatePopup(this.menuPanelContent);
   }
 
   createBackground() {
@@ -106,9 +115,7 @@ export class MainMenuScene extends Phaser.Scene {
     });
 
     this.playButton = this.createMenuButton('Nueva Partida', () => {
-      this.scene.start(sceneKeys.preloader, {
-        nextScene: sceneKeys.game
-      });
+      this.startNewGameTransition();
     });
 
     this.rankingButton = this.createMenuButton('Ranking', () => {
@@ -122,7 +129,7 @@ export class MainMenuScene extends Phaser.Scene {
     this.audioOpenButton = this.createAudioOpenButton();
     this.audioOpenButton.setPosition(226, 206);
 
-    this.menuPanel = this.add.container(0, 0, [
+    this.menuPanelContent = this.add.container(0, 0, [
       outerGlow,
       panel,
       headerBar,
@@ -133,7 +140,10 @@ export class MainMenuScene extends Phaser.Scene {
       this.rankingButton,
       this.controlsButton,
       this.audioOpenButton
-    ]).setDepth(2);
+    ]);
+
+    this.menuPanel = this.add.container(0, 0, [this.menuPanelContent]).setDepth(2);
+    this.menuPanelContent.setScale(0.94);
 
     this.titleText.setY(-126);
     this.titleText.setOrigin(0.5);
@@ -220,7 +230,7 @@ export class MainMenuScene extends Phaser.Scene {
     }, 198);
     backButton.setPosition(112, 272);
 
-    this.audioConfigPanel = this.add.container(0, 0, [
+    this.audioConfigPanelContent = this.add.container(0, 0, [
       outerGlow,
       panel,
       headerBar,
@@ -234,7 +244,10 @@ export class MainMenuScene extends Phaser.Scene {
       missPreviewButton,
       this.audioMuteButton,
       backButton
-    ]).setDepth(2);
+    ]);
+
+    this.audioConfigPanel = this.add.container(0, 0, [this.audioConfigPanelContent]).setDepth(2);
+    this.audioConfigPanelContent.setScale(0.94);
 
     this.audioConfigPanel.setVisible(false);
     this.updateAudioPanel();
@@ -430,9 +443,46 @@ export class MainMenuScene extends Phaser.Scene {
     this.stopAudioPreview();
   }
 
+  animatePopup(target) {
+    if (!target) {
+      return;
+    }
+
+    if (this.popupTween) {
+      this.popupTween.remove();
+    }
+
+    target.setScale(0.94);
+    target.setAlpha(0);
+    this.popupTween = this.tweens.add({
+      targets: target,
+      scaleX: 1,
+      scaleY: 1,
+      alpha: 1,
+      duration: 320,
+      ease: 'Cubic.Out'
+    });
+  }
+
+  startNewGameTransition() {
+    if (this.isTransitioning) {
+      return;
+    }
+
+    this.isTransitioning = true;
+    this.input.enabled = false;
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.scene.start(sceneKeys.preloader, {
+        nextScene: sceneKeys.game
+      });
+    });
+    this.cameras.main.fadeOut(280, 0, 0, 0);
+  }
+
   showAudioConfigView() {
     this.menuPanel?.setVisible(false);
     this.audioConfigPanel?.setVisible(true);
+    this.animatePopup(this.audioConfigPanelContent);
     this.startAudioPreview();
     this.updateAudioPanel();
   }
@@ -491,6 +541,11 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   handleShutdown() {
+    if (this.popupTween) {
+      this.popupTween.remove();
+      this.popupTween = null;
+    }
+
     this.stopAudioPreview();
     this.player?.stopAnimation();
 
@@ -498,5 +553,7 @@ export class MainMenuScene extends Phaser.Scene {
       this.scale.off('resize', this.onResize);
       this.onResize = null;
     }
+
+    this.isTransitioning = false;
   }
 }
