@@ -619,3 +619,127 @@ Como PO, priorizo el orden de la siguiente manera:
 **Justificación:** Seguimos la filosofía de **"Gameplay First"**. Primero nos aseguramos de que la pantalla de juego se vea profesional y limpia (HUD), y luego construimos los accesos (Menú y Ayuda) que rodean a esa experiencia central.
 
 **¿Damos el visto bueno a esta priorización para empezar a definir la Épica 4 (Persistencia y el sistema de iniciales arcade)?**
+
+### Definición de la cuarta épica
+
+Épica 4: Sistema de Puntuación "Old School" (Data & Entry)
+* **Objetivo:** Gestionar la persistencia de datos y la entrada de iniciales estilo arcade.
+* **Descripción:**
+Cada vez que un usuario termine una partida, se debe repasar el listado de mejores puntuaciones, hasta 10. Si el usuario ha conseguido entrar en esa lista de mejores puntuaciones, debe aparecer una opción para que pueda meter sus iniciales.
+* **Historias de Usuario clave:**
+    * Desarrollo de la lógica de persistencia en `LocalStorage`.
+    * Creación de la pantalla de visualización de los Top 10 mejores puntajes.
+    * **Feature Estrella:** Implementación del componente de entrada de iniciales (3 letras) con scroll cíclico (A-Z).
+
+A partir de la descripción de la cuarta épica, genera las User Stories necesarias para desarrollar esa funcionalidad, que cumplan los criterios INVEST. Para cada una incluye:
+- Título descriptivo
+- Historia en formato "Como [rol], quiero [acción], para [beneficio]"
+- 3 criterios de aceptación en formato BDD (Dado que/Cuando/Entonces)
+- Estimación de complejidad (S/M/L)
+- Evaluación breve contra INVEST
+
+Después de generar las historias, sugiere un orden de priorización y justifica tu decisión.
+Ten en cuenta que estamos generando desde cero el proyecto, por lo que serán necesarias, posiblemente, historias para la configuración del entorno de desarrollo.
+
+Respuesta:
+
+Esta es la épica que le da el alma competitiva al juego. Como **Senior Product Owner**, entiendo que el sistema de "High Scores" no es solo una base de datos; es el sistema de recompensas que invita al jugador a volver. La mecánica de entrada de iniciales debe ser fluida y evocar esa nostalgia de los salones de arcade.
+
+Aquí tienes el desglose de User Stories para la **Épica 4: Sistema de Puntuación "Old School"**.
+
+---
+
+#### Épica 4: Sistema de Puntuación "Old School" (Data & Entry)
+
+##### US 4.1: Persistencia de Datos con LocalStorage
+* **Historia:** Como **desarrollador**, quiero un **sistema para guardar y recuperar las 10 mejores puntuaciones de forma local**, para que **el progreso competitivo se mantenga entre sesiones de juego**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Inicialización de datos.
+        * **Dado que** es la primera vez que se abre el juego.
+        * **Cuando** el sistema intenta leer las puntuaciones.
+        * **Entonces** debe generar una lista por defecto de 10 entradas (ej. "CPU - 500", "CPU - 400"...) para que el ranking nunca aparezca vacío.
+    * **Escenario 2:** Guardado persistente.
+        * **Dado que** se ha validado una nueva puntuación alta.
+        * **Cuando** el usuario guarda sus iniciales.
+        * **Entonces** la cadena JSON en `localStorage` debe actualizarse inmediatamente.
+    * **Escenario 3:** Recuperación y orden.
+        * **Dado que** hay múltiples puntuaciones guardadas.
+        * **Cuando** se solicitan los datos.
+        * **Entonces** la lógica debe devolver siempre un array de exactamente 10 objetos, ordenados de mayor a menor puntuación.
+* **Estimación:** **S** (Pequeña).
+* **Evaluación INVEST:** Cumple. Es **I**ndependiente de la UI y **V**aliosa para la persistencia.
+
+---
+
+##### US 4.2: Lógica de Validación de Récord
+* **Historia:** Como **jugador**, quiero que **el juego detecte automáticamente si he entrado en el Top 10**, para **poder registrar mi nombre solo cuando realmente he superado un récord**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Superar el récord mínimo.
+        * **Dado que** termino una partida con 1500 puntos y la décima puntuación más baja es 1400.
+        * **Cuando** el juego transiciona a la pantalla de resultados.
+        * **Entonces** debe mostrarse automáticamente el popup de "Introduce tus iniciales".
+    * **Escenario 2:** No alcanzar el Top 10.
+        * **Dado que** termino una partida con 500 puntos y el Top 10 empieza en 1000.
+        * **Cuando** el juego termina.
+        * **Entonces** el sistema debe mostrar la pantalla actual de finalización de juego.
+    * **Escenario 3:** Empate de puntuación.
+        * **Dado que** mi puntuación es igual a la del puesto 10.
+        * **Cuando** se realiza la validación.
+        * **Entonces** el sistema debe priorizar al nuevo jugador, desplazando al antiguo fuera del Top 10.
+* **Estimación:** **S** (Pequeña).
+* **Evaluación INVEST:** Cumple. Es **T**esteable mediante pruebas unitarias de lógica.
+
+---
+
+##### US 4.3: Feature Estrella: Entrada de Iniciales Arcade
+* **Historia:** Como **jugador nostálgico**, quiero **introducir mis 3 iniciales mediante un scroll cíclico (A-Z)**, para **sentir la experiencia auténtica de una máquina arcade**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Ciclo de letras (A-Z).
+        * **Dado que** estoy editando una inicial.
+        * **Cuando** pulso "Flecha Arriba" en la letra 'Z'.
+        * **Entonces** el carácter debe cambiar a 'A' (y viceversa con 'A' y Flecha Abajo).
+    * **Escenario 2:** Confirmación de iniciales.
+        * **Dado que** estoy en el popup de entrada.
+        * **Cuando** pulso la tecla "Espacio" o "Enter".
+        * **Entonces** se debe confirmar la letra actual y saltar a la siguiente posición, o finalizar el registro si es la tercera letra.
+    * **Escenario 3:** Feedback visual.
+        * **Dado que** estoy eligiendo una letra.
+        * **Cuando** la posición está activa.
+        * **Entonces** la letra o el guion bajo deben tener un efecto de parpadeo (*blink*) para indicar foco.
+* **Estimación:** **L** (Grande). Requiere una gestión de inputs muy fina y feedback visual específico de Phaser.
+* **Evaluación INVEST:** Cumple. Es **N**egociable (podríamos empezar con solo teclado y luego añadir el scroll).
+
+---
+
+##### US 4.4: Ranking Dinámico Actualizado
+* **Historia:** Como **jugador**, quiero **ver mi nombre y puntuación resaltados en la tabla de clasificación**, para **celebrar mi victoria**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Visualización de datos reales.
+        * **Dado que** entro en la escena de Ranking.
+        * **Cuando** la escena se renderiza.
+        * **Entonces** los datos mostrados deben coincidir exactamente con los almacenados en `localStorage`.
+    * **Escenario 2:** Resaltado de nueva entrada.
+        * **Dado que** acabo de introducir mis iniciales.
+        * **Cuando** se muestra la tabla.
+        * **Entonces** mi fila (nombre y puntos) debe aparecer con un color diferente o efecto de brillo para distinguirla del resto.
+    * **Escenario 3:** Limpieza del Top 10.
+        * **Dado que** hay más de 10 puntuaciones registradas en el historial interno.
+        * **Cuando** se visualiza la tabla.
+        * **Entonces** solo deben mostrarse las 10 mejores, truncando el resto.
+* **Estimación:** **M** (Media).
+* **Evaluación INVEST:** Cumple. Es la culminación **V**aliosa de toda la épica.
+
+---
+
+## Priorización Sugerida y Justificación
+
+El orden de implementación propuesto es:
+
+1.  **US 4.1 (Persistencia):** Es la base técnica. Sin el "almacén" de datos, no podemos probar nada más.
+2.  **US 4.2 (Lógica de Validación):** Es una lógica invisible pero crítica para decidir el flujo de pantallas.
+3.  **US 4.3 (Entrada de Iniciales):** Es la pieza de mayor esfuerzo. Se prioriza aquí para tener tiempo de pulir la experiencia de usuario (UX), que es el punto fuerte del juego.
+4.  **US 4.4 (Ranking Dinámico):** Se deja para el final porque es la representación visual de los datos que ya sabemos que se guardan correctamente.
+
+**Justificación:** Seguimos un enfoque de **"Datos -> Lógica -> Interfaz"**. Aseguramos que la información fluye correctamente desde el final de la partida hasta el almacenamiento antes de dedicar tiempo a que la tabla de clasificación se vea bonita.
+
+**¿Te gustaría que definamos ahora los activos gráficos (assets) necesarios para el feedback visual de la Épica 5 o prefieres que revisemos la lógica del temporizador de la US 3.2?**
