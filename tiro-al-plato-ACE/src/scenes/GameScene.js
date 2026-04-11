@@ -29,6 +29,10 @@ const SHOOT_ZONE_RIGHT_X_RATIO = 0.61;
 const SHOT_RESET_DELAY = 180;
 const HIT_SCORE = 100;
 const SHOT_FEEDBACK_DURATION = 650;
+const SCREEN_FLASH_DURATION = 50;
+const SCREEN_FLASH_ALPHA = 0.2;
+const MUZZLE_FLASH_DURATION = 80;
+const MUZZLE_FLASH_ALPHA = 0.94;
 const HUD_TOP_MARGIN = 28;
 const HUD_WIDTH_MIN = 340;
 const HUD_WIDTH_MAX = 560;
@@ -42,10 +46,29 @@ const MAX_SHOOT_ZONE_SCALE_MULTIPLIER = 2;
 const DEFAULT_FEEDBACK = '';
 const TIMER_SIGN_CENTER = Object.freeze({ x: 1394, y: 943 });
 const TIMER_SIGN_FONT_SIZE = 54;
+const DEFAULT_PLATE_FRAGMENT_PALETTE = Object.freeze([0xfff9e3, 0xf1c66c, 0xcf8b2a]);
 const SPECIAL_PLATE_CONFIGS = Object.freeze([
-  { name: 'azul', tint: 0x4d8fff, score: 200, feedbackColor: '#98c7ff' },
-  { name: 'rojo', tint: 0xff6767, score: 500, feedbackColor: '#ffc0c0' },
-  { name: 'verde', tint: 0x54da78, score: 1000, feedbackColor: '#baf5c6' }
+  {
+    name: 'azul',
+    tint: 0x4d8fff,
+    score: 200,
+    feedbackColor: '#98c7ff',
+    fragmentPalette: [0xe8f2ff, 0x87b8ff, 0x4d8fff]
+  },
+  {
+    name: 'rojo',
+    tint: 0xff6767,
+    score: 500,
+    feedbackColor: '#ffc0c0',
+    fragmentPalette: [0xffecec, 0xff9a9a, 0xff6767]
+  },
+  {
+    name: 'verde',
+    tint: 0x54da78,
+    score: 1000,
+    feedbackColor: '#baf5c6',
+    fragmentPalette: [0xeaffef, 0x8be8a3, 0x54da78]
+  }
 ]);
 
 export class GameScene extends Phaser.Scene {
@@ -61,6 +84,8 @@ export class GameScene extends Phaser.Scene {
     this.plateText = null;
     this.feedbackText = null;
     this.timerText = null;
+    this.screenFlash = null;
+    this.muzzleFlash = null;
     this.score = 0;
     this.hits = 0;
     this.misses = 0;
@@ -96,6 +121,8 @@ export class GameScene extends Phaser.Scene {
     this.plateText = null;
     this.feedbackText = null;
     this.timerText = null;
+    this.screenFlash = null;
+    this.muzzleFlash = null;
     this.score = 0;
     this.hits = 0;
     this.misses = 0;
@@ -124,6 +151,7 @@ export class GameScene extends Phaser.Scene {
     this.createBackground();
     this.createPlayer();
     this.createShootZones();
+    this.createShotEffects();
     this.createHud();
     this.registerSceneEvents();
     this.registerInput();
@@ -145,6 +173,24 @@ export class GameScene extends Phaser.Scene {
   createShootZones() {
     this.leftShootZone = this.createShootZone();
     this.rightShootZone = this.createShootZone();
+  }
+
+  createShotEffects() {
+    this.screenFlash = this.add.rectangle(0, 0, 1, 1, 0xffffff, 1)
+      .setOrigin(0)
+      .setDepth(3)
+      .setAlpha(0)
+      .setVisible(false);
+
+    const muzzleCore = this.add.circle(0, 0, 14, 0xffffff, 0.98);
+    const muzzleFront = this.add.ellipse(24, 0, 54, 18, 0xffffff, 0.86);
+    const muzzleUpper = this.add.ellipse(10, -11, 24, 8, 0xffffff, 0.72);
+    const muzzleLower = this.add.ellipse(10, 11, 24, 8, 0xffffff, 0.72);
+
+    this.muzzleFlash = this.add.container(0, 0, [muzzleCore, muzzleFront, muzzleUpper, muzzleLower])
+      .setDepth(1.82)
+      .setAlpha(0)
+      .setVisible(false);
   }
 
   createShootZone() {
@@ -256,6 +302,61 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.player?.playShot(textureKey, { resetDelay: SHOT_RESET_DELAY });
+    this.playShotEffects(textureKey);
+  }
+
+  playShotEffects(textureKey) {
+    this.playMuzzleFlash(textureKey);
+    this.playScreenFlash();
+  }
+
+  playMuzzleFlash(textureKey) {
+    if (!this.muzzleFlash || !this.player) {
+      return;
+    }
+
+    const direction = textureKey === textureKeys.playerAimLeft ? -1 : 1;
+    const muzzlePoint = this.player.getMuzzleWorldPoint(textureKey);
+
+    this.tweens.killTweensOf(this.muzzleFlash);
+    this.muzzleFlash
+      .setPosition(muzzlePoint.x, muzzlePoint.y)
+      .setScale(direction, 1)
+      .setAlpha(MUZZLE_FLASH_ALPHA)
+      .setVisible(true);
+
+    this.tweens.add({
+      targets: this.muzzleFlash,
+      alpha: 0,
+      scaleX: direction * 1.35,
+      scaleY: 1.35,
+      duration: MUZZLE_FLASH_DURATION,
+      ease: 'Quad.easeOut',
+      onComplete: () => {
+        this.muzzleFlash?.setVisible(false);
+      }
+    });
+  }
+
+  playScreenFlash() {
+    if (!this.screenFlash) {
+      return;
+    }
+
+    this.tweens.killTweensOf(this.screenFlash);
+    this.screenFlash
+      .setAlpha(SCREEN_FLASH_ALPHA)
+      .setVisible(true);
+
+    this.tweens.add({
+      targets: this.screenFlash,
+      alpha: 0,
+      duration: SCREEN_FLASH_DURATION,
+      ease: 'Linear',
+      onComplete: () => {
+        this.screenFlash?.setVisible(false);
+      }
+    });
   }
 
   findHittableTargetIndex(zone) {
@@ -461,6 +562,7 @@ export class GameScene extends Phaser.Scene {
     plate.feedbackMessage = config.feedbackMessage ?? `Acierto +${plate.hitScore}`;
     plate.feedbackColor = config.feedbackColor ?? '#a7efb0';
     plate.missFeedback = config.missFeedback ?? 'Fallo';
+    plate.fragmentPalette = config.fragmentPalette ?? DEFAULT_PLATE_FRAGMENT_PALETTE;
     plate.countsAsMiss = config.countsAsMiss ?? true;
     plate.countsTowardHits = config.countsTowardHits ?? true;
     plate.modifiesDifficulty = config.modifiesDifficulty ?? true;
@@ -695,7 +797,7 @@ export class GameScene extends Phaser.Scene {
       this.increaseDifficulty();
     }
 
-    this.spawnBrokenPlateEffect(target.x, target.y);
+    this.spawnBrokenPlateEffect(target.x, target.y, target.fragmentPalette);
     this.setFeedback(target.feedbackMessage, target.feedbackColor);
     this.updateHud();
     this.destroyTargetAt(index);
@@ -780,8 +882,8 @@ export class GameScene extends Phaser.Scene {
     this.updateShootZoneTracking();
   }
 
-  spawnBrokenPlateEffect(x, y) {
-    const effect = new BrokenPlateEffect(this, x, y);
+  spawnBrokenPlateEffect(x, y, fragmentPalette = DEFAULT_PLATE_FRAGMENT_PALETTE) {
+    const effect = new BrokenPlateEffect(this, x, y, { fragmentPalette });
     effect.setDepth(1.75);
   }
 
@@ -887,6 +989,10 @@ export class GameScene extends Phaser.Scene {
       this.player.resizeToCover(width, height);
     }
 
+    if (this.screenFlash) {
+      this.screenFlash.setDisplaySize(width, height);
+    }
+
     if (this.leftShootZone) {
       this.leftShootZone.setPosition(width * SHOOT_ZONE_LEFT_X_RATIO, this.getShootZoneHomeY());
     }
@@ -936,6 +1042,18 @@ export class GameScene extends Phaser.Scene {
     if (this.feedbackTimer) {
       this.feedbackTimer.remove(false);
       this.feedbackTimer = null;
+    }
+
+    if (this.screenFlash) {
+      this.tweens.killTweensOf(this.screenFlash);
+      this.screenFlash.destroy();
+      this.screenFlash = null;
+    }
+
+    if (this.muzzleFlash) {
+      this.tweens.killTweensOf(this.muzzleFlash);
+      this.muzzleFlash.destroy();
+      this.muzzleFlash = null;
     }
 
     this.destroyAllTargets();

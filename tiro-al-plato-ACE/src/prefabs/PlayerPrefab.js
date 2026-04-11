@@ -1,4 +1,15 @@
 import Phaser from 'phaser';
+import { textureKeys } from '../assets/manifest.js';
+
+const PLAYER_MUZZLE_POINTS = Object.freeze({
+  [textureKeys.playerNeutral1]: { x: 692, y: 686 },
+  [textureKeys.playerNeutral2]: { x: 692, y: 686 },
+  [textureKeys.playerAimCenter]: { x: 692, y: 686 },
+  [textureKeys.playerAimRight]: { x: 976, y: 693 },
+  [textureKeys.playerAimLeft]: { x: 560, y: 693 },
+  [textureKeys.playerVictory1]: { x: 976, y: 693 },
+  [textureKeys.playerVictory2]: { x: 976, y: 693 }
+});
 
 export class PlayerPrefab extends Phaser.GameObjects.Container {
   constructor(scene, x, y, textureKey) {
@@ -47,6 +58,21 @@ export class PlayerPrefab extends Phaser.GameObjects.Container {
 
     this.setPosition(width / 2, height / 2);
     this.playerImage.setScale(scale);
+  }
+
+  getMuzzleWorldPoint(textureKey = this.textureKey) {
+    if (!this.playerImage?.texture) {
+      return { x: this.x, y: this.y };
+    }
+
+    const sourcePoint = PLAYER_MUZZLE_POINTS[textureKey]
+      ?? PLAYER_MUZZLE_POINTS[this.defaultTextureKey]
+      ?? { x: this.playerImage.width * 0.5, y: this.playerImage.height * 0.5 };
+
+    return {
+      x: this.x - (this.playerImage.displayWidth * 0.5) + ((sourcePoint.x / this.playerImage.width) * this.playerImage.displayWidth),
+      y: this.y - (this.playerImage.displayHeight * 0.5) + ((sourcePoint.y / this.playerImage.height) * this.playerImage.displayHeight)
+    };
   }
 
   playLoop(sequence, config = {}) {

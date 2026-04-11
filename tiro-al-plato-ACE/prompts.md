@@ -778,7 +778,7 @@ Aquí tienes las User Stories para la **Épica 5: Experiencia Sensorial y Pulido
     * **Escenario 1:** Partículas de fragmentación.
         * **Dado que** un plato es alcanzado por un disparo.
         * **Cuando** el objeto se destruye.
-        * **Entonces** el motor debe instanciar un emisor de partículas que genere al menos 10 fragmentos con la misma paleta de colores que el plato (rojo, azul o verde).
+        * **Entonces** el motor debe instanciar un emisor de partículas que genere al menos 10 fragmentos con la misma paleta de colores que el plato (normal, rojo, azul o verde).
     * **Escenario 2:** Flash de disparo.
         * **Dado que** el jugador pulsa la tecla de disparo.
         * **Cuando** se activa el cuadrado de tiro.

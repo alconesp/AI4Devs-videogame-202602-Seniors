@@ -1,69 +1,93 @@
 import Phaser from 'phaser';
 
-const SHARD_COLORS = [0xf5f1d6, 0xe5b75c, 0xcf8b2a];
-const SHARD_LAYOUT = [
-  { x: -10, y: -5, angle: -34 },
-  { x: 9, y: -6, angle: 26 },
-  { x: -12, y: 7, angle: 208 },
-  { x: 10, y: 8, angle: 146 },
-  { x: 0, y: -12, angle: -90 },
-  { x: 0, y: 12, angle: 90 }
-];
+const DEFAULT_FRAGMENT_PALETTE = Object.freeze([0xfff9e3, 0xf1c66c, 0xcf8b2a]);
+const FRAGMENT_TEXTURE_KEY = '__plate-fragment__';
+const FRAGMENT_COUNT = 12;
+const FRAGMENT_LIFESPAN = Object.freeze({ min: 420, max: 720 });
+const FLASH_DURATION = 120;
+
+function ensureFragmentTexture(scene) {
+  if (scene.textures.exists(FRAGMENT_TEXTURE_KEY)) {
+    return FRAGMENT_TEXTURE_KEY;
+  }
+
+  const graphics = scene.make.graphics({ add: false });
+
+  graphics.fillStyle(0xffffff, 1);
+  graphics.beginPath();
+  graphics.moveTo(2, 1);
+  graphics.lineTo(15, 4);
+  graphics.lineTo(7, 13);
+  graphics.lineTo(0, 9);
+  graphics.closePath();
+  graphics.fillPath();
+  graphics.generateTexture(FRAGMENT_TEXTURE_KEY, 16, 14);
+  graphics.destroy();
+
+  return FRAGMENT_TEXTURE_KEY;
+}
 
 export class BrokenPlateEffect extends Phaser.GameObjects.Container {
-  constructor(scene, x, y) {
+  constructor(scene, x, y, config = {}) {
     super(scene, x, y);
 
-    this.flash = scene.add.circle(0, 0, 7, 0xfff9e3, 0.9).setDepth(0.1);
-    this.shards = SHARD_LAYOUT.map((layout, index) => {
-      const shard = scene.add.triangle(0, 0, 0, -7, 9, 0, 0, 7, SHARD_COLORS[index % SHARD_COLORS.length], 1)
-        .setPosition(layout.x, layout.y)
-        .setRotation(Phaser.Math.DegToRad(layout.angle))
-        .setStrokeStyle(2, 0x7a4d14, 1);
-
-      return shard;
+    this.fragmentPalette = config.fragmentPalette ?? DEFAULT_FRAGMENT_PALETTE;
+    this.cleanupTimer = null;
+    this.emitter = scene.add.particles(0, 0, ensureFragmentTexture(scene), {
+      emitting: false,
+      lifespan: FRAGMENT_LIFESPAN,
+      quantity: FRAGMENT_COUNT,
+      speedX: { min: -240, max: 240 },
+      speedY: { min: -320, max: -120 },
+      gravityY: 720,
+      rotate: { min: 0, max: 360 },
+      angularVelocity: { min: -360, max: 360 },
+      scale: { start: 1, end: 0.22 },
+      alpha: { start: 0.95, end: 0 },
+      tint: { onEmit: () => Phaser.Utils.Array.GetRandom(this.fragmentPalette) }
     });
+    this.flash = scene.add.circle(0, 0, 12, 0xffffff, 0.92);
 
-    this.add([this.flash, ...this.shards]);
+    this.add(this.flash);
     scene.add.existing(this);
     this.play();
   }
 
+  setDepth(value) {
+    super.setDepth(value);
+
+    if (this.emitter) {
+      this.emitter.setDepth(value);
+    }
+
+    return this;
+  }
+
   play() {
+    this.emitter.explode(FRAGMENT_COUNT, this.x, this.y);
+
     this.scene.tweens.add({
       targets: this.flash,
-      scaleX: 2.4,
-      scaleY: 2.4,
+      scaleX: 2.8,
+      scaleY: 2.8,
       alpha: 0,
-      duration: 220,
+      duration: FLASH_DURATION,
       ease: 'Quad.easeOut'
     });
 
-    this.shards.forEach((shard) => {
-      const distance = Phaser.Math.Between(16, 30);
-      const direction = Phaser.Math.FloatBetween(-0.55, 0.55);
-
-      this.scene.tweens.add({
-        targets: shard,
-        x: shard.x + Math.cos(shard.rotation + direction) * distance,
-        y: shard.y + Math.sin(shard.rotation + direction) * distance,
-        angle: shard.angle + Phaser.Math.Between(-80, 80),
-        alpha: 0,
-        scaleX: 0.55,
-        scaleY: 0.55,
-        duration: Phaser.Math.Between(280, 420),
-        ease: 'Cubic.easeOut'
-      });
+    this.cleanupTimer = this.scene.time.delayedCall(FRAGMENT_LIFESPAN.max + 140, () => {
+      this.destroy();
     });
+  }
 
-    this.scene.tweens.add({
-      targets: this,
-      alpha: 0,
-      duration: 440,
-      ease: 'Quad.easeOut',
-      onComplete: () => {
-        this.destroy();
-      }
-    });
+  destroy(fromScene) {
+    if (this.cleanupTimer) {
+      this.cleanupTimer.remove(false);
+      this.cleanupTimer = null;
+    }
+
+    this.emitter?.destroy();
+    this.emitter = null;
+    super.destroy(fromScene);
   }
 }
