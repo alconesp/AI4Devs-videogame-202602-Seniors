@@ -731,7 +731,7 @@ Aquí tienes el desglose de User Stories para la **Épica 4: Sistema de Puntuaci
 
 ---
 
-## Priorización Sugerida y Justificación
+#### Priorización Sugerida y Justificación
 
 El orden de implementación propuesto es:
 
@@ -743,3 +743,132 @@ El orden de implementación propuesto es:
 **Justificación:** Seguimos un enfoque de **"Datos -> Lógica -> Interfaz"**. Aseguramos que la información fluye correctamente desde el final de la partida hasta el almacenamiento antes de dedicar tiempo a que la tabla de clasificación se vea bonita.
 
 **¿Te gustaría que definamos ahora los activos gráficos (assets) necesarios para el feedback visual de la Épica 5 o prefieres que revisemos la lógica del temporizador de la US 3.2?**
+
+### Definición de la quinta épica
+
+Épica 5: Experiencia Sensorial y Pulido (The Juice & Balance)
+* **Objetivo:** Hacer que el juego pase de ser funcional a ser "divertido".
+* **Historias de Usuario clave:**
+    * **Feedback Visual:** Sistema de partículas para la explosión de platos y "flash" de pantalla al disparar.
+    * **Feedback Auditivo:** Efectos de sonido para disparo, acierto, fallo y música de fondo.
+
+A partir de la descripción de la quinta épica, genera las User Stories necesarias para desarrollar esa funcionalidad, que cumplan los criterios INVEST. Para cada una incluye:
+- Título descriptivo
+- Historia en formato "Como [rol], quiero [acción], para [beneficio]"
+- 3 criterios de aceptación en formato BDD (Dado que/Cuando/Entonces)
+- Estimación de complejidad (S/M/L)
+- Evaluación breve contra INVEST
+
+Después de generar las historias, sugiere un orden de priorización y justifica tu decisión.
+Ten en cuenta que estamos generando desde cero el proyecto, por lo que serán necesarias, posiblemente, historias para la configuración del entorno de desarrollo.
+
+Respuesta:
+
+Esta es la fase que separa a un prototipo técnico de un **videojuego real**. En la industria lo llamamos el *"Game Feel"* o *"Juice"*. Como tu **Senior Product Owner**, mi prioridad aquí es el refuerzo positivo: que cada acción del jugador (disparar, acertar, fallar) se sienta satisfactoria y emocionante.
+
+Aquí tienes las User Stories para la **Épica 5: Experiencia Sensorial y Pulido**.
+
+---
+
+#### Épica 5: Experiencia Sensorial y Pulido (The Juice & Balance)
+
+##### US 5.1: Sistema de Partículas y Feedback de Impacto
+* **Historia:** Como **jugador**, quiero ver **una explosión de fragmentos cuando rompo un plato**, para **sentir visualmente la potencia de mi disparo**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Partículas de fragmentación.
+        * **Dado que** un plato es alcanzado por un disparo.
+        * **Cuando** el objeto se destruye.
+        * **Entonces** el motor debe instanciar un emisor de partículas que genere al menos 10 fragmentos con la misma paleta de colores que el plato (rojo, azul o verde).
+    * **Escenario 2:** Flash de disparo.
+        * **Dado que** el jugador pulsa la tecla de disparo.
+        * **Cuando** se activa el cuadrado de tiro.
+        * **Entonces** debe aparecer un "muzzle flash" (destello blanco momentáneo) en la posición del cañón del personaje y un breve destello blanco transparente sobre toda la pantalla (0.05s).
+    * **Escenario 3:** Rendimiento del emisor.
+        * **Dado que** hay múltiples explosiones seguidas.
+        * **Cuando** las partículas terminan su trayectoria de caída.
+        * **Entonces** deben ser destruidas automáticamente para evitar la saturación de la memoria del navegador.
+* **Estimación:** **M** (Media, requiere tunear los parámetros del `ParticleEmitter` de Phaser).
+* **Evaluación INVEST:** Cumple. Es **V**aliosa para el *engagement* y **E**stimable.
+
+---
+
+##### US 5.2: Paisaje Sonoro y Feedback Auditivo
+* **Historia:** Como **jugador**, quiero **escuchar efectos de sonido para cada acción**, para **tener una experiencia inmersiva y feedback auditivo de mis aciertos**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Sonido de disparo vs impacto.
+        * **Dado que** el jugador dispara.
+        * **Cuando** se pulsa la tecla.
+        * **Entonces** debe sonar un efecto de "bang" seco; si hay impacto, debe sonar inmediatamente un efecto de "cerámica rompiéndose".
+    * **Escenario 2:** Música de fondo (BGM).
+        * **Dado que** el jugador está en la escena de juego.
+        * **Cuando** comienza la partida.
+        * **Entonces** debe sonar una música en bucle (loop) cuyo volumen baje ligeramente cuando ocurra un efecto de sonido de impacto.
+    * **Escenario 3:** Feedback de fallo.
+        * **Dado que** un plato sale de la pantalla sin ser destruido.
+        * **Cuando** se registra el fallo.
+        * **Entonces** debe sonar un tono grave o "buzz" sutil para indicar la pérdida del combo o velocidad.
+* **Estimación:** **S** (Pequeña).
+* **Evaluación INVEST:** Cumple. Es **I**ndependiente y **T**esteable.
+
+---
+
+##### US 5.3: Dinámica de Cámara y Sacudida (Screen Shake)
+* **Historia:** Como **jugador**, quiero que **la cámara reaccione a los eventos importantes**, para **percibir la intensidad de los disparos y los aciertos críticos**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Sacudida por disparo estándar.
+        * **Dado que** el jugador dispara.
+        * **Cuando** la tecla es presionada.
+        * **Entonces** la cámara debe realizar un `shake` muy leve (intensidad 0.005) durante 0.1 segundos.
+    * **Escenario 2:** Sacudida por acierto crítico (Nave/Plato Verde).
+        * **Dado que** el jugador acierta a la Nave Extraterrestre o al plato final verde.
+        * **Cuando** se procesa el impacto.
+        * **Entonces** la sacudida de cámara debe ser el doble de intensa y duradera que la estándar.
+    * **Escenario 3:** Estabilidad de la UI.
+        * **Dado que** la cámara se sacude.
+        * **Cuando** ocurre el evento.
+        * **Entonces** los elementos de la barra superior (puntos y platos) NO deben sacudirse (usando una cámara secundaria o ignorando el scroll).
+* **Estimación:** **S** (Pequeña).
+* **Evaluación INVEST:** Cumple. Es una mejora **N**egociable pero de alto **V**alor percibido.
+
+---
+
+##### US 5.4: Transiciones y Pulido de Menús
+* **Historia:** Como **jugador**, quiero **transiciones suaves entre escenas**, para **sentir que el juego tiene una calidad profesional**.
+* **Criterios de Aceptación (BDD):**
+    * **Escenario 1:** Fundido a negro (Fade out).
+        * **Dado que** el jugador pulsa "Nueva Partida".
+        * **Cuando** se cambia de escena.
+        * **Entonces** la pantalla debe hacer un fundido a negro antes de mostrar el nivel de juego.
+    * **Escenario 2:** Animación del Popup.
+        * **Dado que** aparece el menú principal o el ranking.
+        * **Cuando** la escena se inicia.
+        * **Entonces** el popup central debe aparecer con un efecto de escalado (de 0 a 1) con rebote (*bounce*).
+* **Estimación:** **S** (Pequeña).
+* **Evaluación INVEST:** Cumple. Es **S**mall y mejora mucho la **V**aloración del usuario.
+
+---
+
+#### Priorización y Justificación
+
+El orden sugerido es:
+
+1.  **US 5.1 (Visual) & US 5.2 (Audio):** **Prioridad Crítica**. El feedback visual y auditivo básico es lo que hace que el jugador quiera seguir disparando. Sin esto, el juego se siente "muerto".
+2.  **US 5.4 (Transiciones):** Es un esfuerzo muy bajo con un impacto alto en la percepción de "producto terminado".
+3.  **US 5.3 (Screen Shake):** Es la última porque es un detalle de pulido fino que, si se calibra mal, puede marear al jugador. Requiere pruebas después de tener lo visual y auditivo listo.
+
+**Justificación:** Implementamos primero el **feedback reactivo** (lo que ocurre cuando el jugador actúa) y dejamos el **pulido pasivo** (transiciones) para el final.
+
+---
+
+#### Conclusión del Product Roadmap para el MVP
+
+Hemos definido un plan robusto que cubre:
+1.  **Arquitectura** (Cimientos).
+2.  **Gameplay** (Mecánicas arcade únicas).
+3.  **UI/UX** (Navegación fluida).
+4.  **Meta-game** (Ranking y persistencia).
+5.  **Juice** (Diversión sensorial).
+
+Como tu **Senior Product Owner**, te aseguro que seguir este orden nos permitirá tener una versión jugable y "enseñable" desde la Épica 2, mejorando incrementalmente hasta llegar al producto final.
+
+**¿Deseas que profundicemos en la redacción técnica de alguna de estas historias o que preparemos el "Sprint 1" seleccionando las historias de la Épica 1 y 2?**
