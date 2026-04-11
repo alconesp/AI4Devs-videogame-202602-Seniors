@@ -20,6 +20,10 @@ const SHOOT_ZONE_RIGHT_X_RATIO = 0.61;
 const SHOT_RESET_DELAY = 180;
 const HIT_SCORE = 100;
 const SHOT_FEEDBACK_DURATION = 650;
+const HUD_TOP_OFFSET = 148;
+const DIFFICULTY_STEP = 0.1;
+const MAX_PLATE_SPEED_MULTIPLIER = 2;
+const MAX_SHOOT_ZONE_SCALE_MULTIPLIER = 2;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -41,6 +45,8 @@ export class GameScene extends Phaser.Scene {
     this.plateSpawnTimer = null;
     this.feedbackTimer = null;
     this.activePlates = [];
+    this.plateSpeedMultiplier = 1;
+    this.shootZoneScaleMultiplier = 1;
     this.onResize = null;
     this.onShootLeft = null;
     this.onShootRight = null;
@@ -66,6 +72,8 @@ export class GameScene extends Phaser.Scene {
     this.plateSpawnTimer = null;
     this.feedbackTimer = null;
     this.activePlates = [];
+    this.plateSpeedMultiplier = 1;
+    this.shootZoneScaleMultiplier = 1;
     this.onResize = null;
     this.onShootLeft = null;
     this.onShootRight = null;
@@ -194,14 +202,16 @@ export class GameScene extends Phaser.Scene {
 
   activateShootZone(zone, textureKey) {
     if (zone) {
+      const baseScale = this.getShootZoneBaseScale();
+
       this.tweens.killTweensOf(zone);
       zone.setAlpha(SHOOT_ZONE_ALPHA);
-      zone.setScale(1.18);
+      zone.setScale(baseScale * 1.18);
 
       this.tweens.add({
         targets: zone,
-        scaleX: 1,
-        scaleY: 1,
+        scaleX: baseScale,
+        scaleY: baseScale,
         duration: SHOT_RESET_DELAY,
         ease: 'Sine.easeOut'
       });
@@ -251,12 +261,25 @@ export class GameScene extends Phaser.Scene {
     this.spawnPlate();
 
     this.plateSpawnTimer = this.time.addEvent({
-      delay: PLATE_SPAWN_DELAY,
+      delay: this.getCurrentPlateSpawnDelay(),
       loop: true,
       callback: () => {
         this.spawnPlate();
+        this.syncPlateSpawnDelay();
       }
     });
+  }
+
+  getCurrentPlateSpawnDelay() {
+    return PLATE_SPAWN_DELAY / this.plateSpeedMultiplier;
+  }
+
+  syncPlateSpawnDelay() {
+    if (!this.plateSpawnTimer) {
+      return;
+    }
+
+    this.plateSpawnTimer.delay = this.getCurrentPlateSpawnDelay();
   }
 
   spawnPlate() {
@@ -288,7 +311,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time, delta) {
-    const deltaSeconds = delta / 1000;
+    const deltaSeconds = (delta / 1000) * this.plateSpeedMultiplier;
 
     for (let index = this.activePlates.length - 1; index >= 0; index -= 1) {
       const plate = this.activePlates[index];
@@ -319,7 +342,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    if (plate.wasInShootZone && !plate.hasRegisteredMiss && !plate.wasHit) {
+    if (!plate.hasRegisteredMiss && !plate.wasHit && this.hasPlatePassedShootZones(plate)) {
       this.registerMiss(plate);
     }
   }
@@ -369,9 +392,33 @@ export class GameScene extends Phaser.Scene {
     return this.scale.height * SHOOT_ZONE_Y_RATIO;
   }
 
+  getShootZoneBaseScale() {
+    return this.shootZoneScaleMultiplier;
+  }
+
   getClampedShootZoneY(targetY) {
-    const halfSize = SHOOT_ZONE_SIZE * 0.5;
+    const zoneHeight = Math.max(
+      this.leftShootZone?.displayHeight ?? 0,
+      this.rightShootZone?.displayHeight ?? 0,
+      SHOOT_ZONE_SIZE * this.shootZoneScaleMultiplier
+    );
+    const halfSize = zoneHeight * 0.5;
+
     return Phaser.Math.Clamp(targetY, halfSize, this.scale.height - halfSize);
+  }
+
+  hasPlatePassedShootZones(plate) {
+    if (!plate || !this.leftShootZone || !this.rightShootZone) {
+      return false;
+    }
+
+    const leftmostZoneEdge = Math.min(
+      this.leftShootZone.x - (this.leftShootZone.displayWidth * 0.5),
+      this.rightShootZone.x - (this.rightShootZone.displayWidth * 0.5)
+    );
+    const plateBounds = plate.getBoundsRect();
+
+    return plateBounds.right < leftmostZoneEdge;
   }
 
   destroyPlateAt(index) {
@@ -409,6 +456,7 @@ export class GameScene extends Phaser.Scene {
     plate.markHit();
     this.score += HIT_SCORE;
     this.hits += 1;
+    this.increaseDifficulty();
     this.spawnBrokenPlateEffect(plate.x, plate.y);
     this.setFeedback('Acierto +100', '#a7efb0');
     this.updateHud();
@@ -418,8 +466,45 @@ export class GameScene extends Phaser.Scene {
   registerMiss(plate) {
     plate.markMissRegistered();
     this.misses += 1;
+    this.resetDifficulty();
     this.setFeedback('Fallo', '#ffb6b6');
     this.updateHud();
+  }
+
+  increaseDifficulty() {
+    this.plateSpeedMultiplier = Phaser.Math.Clamp(
+      this.plateSpeedMultiplier + DIFFICULTY_STEP,
+      1,
+      MAX_PLATE_SPEED_MULTIPLIER
+    );
+
+    this.shootZoneScaleMultiplier = Phaser.Math.Clamp(
+      this.shootZoneScaleMultiplier + DIFFICULTY_STEP,
+      1,
+      MAX_SHOOT_ZONE_SCALE_MULTIPLIER
+    );
+
+    this.applyShootZoneScale();
+    this.syncPlateSpawnDelay();
+  }
+
+  resetDifficulty() {
+    this.plateSpeedMultiplier = 1;
+    this.shootZoneScaleMultiplier = 1;
+    this.applyShootZoneScale();
+    this.syncPlateSpawnDelay();
+  }
+
+  applyShootZoneScale() {
+    if (this.leftShootZone) {
+      this.leftShootZone.setScale(this.shootZoneScaleMultiplier);
+    }
+
+    if (this.rightShootZone) {
+      this.rightShootZone.setScale(this.shootZoneScaleMultiplier);
+    }
+
+    this.updateShootZoneTracking();
   }
 
   spawnBrokenPlateEffect(x, y) {
@@ -484,7 +569,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.hud) {
-      this.hud.setPosition(width / 2, height / 2);
+      this.hud.setPosition(width / 2, Phaser.Math.Clamp(HUD_TOP_OFFSET, 140, height - 140));
     }
 
     if (this.player) {
@@ -498,6 +583,8 @@ export class GameScene extends Phaser.Scene {
     if (this.rightShootZone) {
       this.rightShootZone.setPosition(width * SHOOT_ZONE_RIGHT_X_RATIO, this.getShootZoneHomeY());
     }
+
+    this.applyShootZoneScale();
   }
 
   handleShutdown() {
