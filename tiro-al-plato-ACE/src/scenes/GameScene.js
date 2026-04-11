@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { textureKeys } from '../assets/manifest.js';
+import { GameAudioController } from '../game/GameAudioController.js';
 import { BonusShipPrefab } from '../prefabs/BonusShipPrefab.js';
 import { BrokenPlateEffect } from '../prefabs/BrokenPlateEffect.js';
 import { PlatePrefab } from '../prefabs/PlatePrefab.js';
@@ -86,6 +87,7 @@ export class GameScene extends Phaser.Scene {
     this.timerText = null;
     this.screenFlash = null;
     this.muzzleFlash = null;
+    this.audioController = null;
     this.score = 0;
     this.hits = 0;
     this.misses = 0;
@@ -123,6 +125,7 @@ export class GameScene extends Phaser.Scene {
     this.timerText = null;
     this.screenFlash = null;
     this.muzzleFlash = null;
+    this.audioController = null;
     this.score = 0;
     this.hits = 0;
     this.misses = 0;
@@ -148,6 +151,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
+    this.audioController = new GameAudioController(this);
     this.createBackground();
     this.createPlayer();
     this.createShootZones();
@@ -155,6 +159,7 @@ export class GameScene extends Phaser.Scene {
     this.createHud();
     this.registerSceneEvents();
     this.registerInput();
+    this.audioController.startMusicLoop();
     this.handleResize(this.scale.gameSize);
     this.startRoundTimer();
     this.startPlateSpawner();
@@ -303,6 +308,7 @@ export class GameScene extends Phaser.Scene {
 
     this.player?.playShot(textureKey, { resetDelay: SHOT_RESET_DELAY });
     this.playShotEffects(textureKey);
+    this.audioController?.playShot();
   }
 
   playShotEffects(textureKey) {
@@ -797,6 +803,10 @@ export class GameScene extends Phaser.Scene {
       this.increaseDifficulty();
     }
 
+    if (!target.isFinalShip) {
+      this.audioController?.playImpact();
+    }
+
     this.spawnBrokenPlateEffect(target.x, target.y, target.fragmentPalette);
     this.setFeedback(target.feedbackMessage, target.feedbackColor);
     this.updateHud();
@@ -824,6 +834,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.resetDifficulty();
+    this.audioController?.playMiss();
     this.setFeedback(target.missFeedback, '#ffb6b6');
     this.updateHud();
   }
@@ -1005,6 +1016,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   handleShutdown() {
+    this.audioController?.destroy();
+    this.audioController = null;
+
     this.player?.stopAnimation();
 
     if (this.onResize) {

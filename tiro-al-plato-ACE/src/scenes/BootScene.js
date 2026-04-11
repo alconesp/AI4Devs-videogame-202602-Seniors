@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { applyAudioSettingsToRegistry, loadStoredAudioSettings } from '../game/audioSettings.js';
 import { sceneKeys } from './sceneKeys.js';
 
 export class BootScene extends Phaser.Scene {
@@ -7,6 +8,8 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
+    applyAudioSettingsToRegistry(this.registry, loadStoredAudioSettings());
+
     this.scene.start(sceneKeys.preloader, {
       nextScene: sceneKeys.mainMenu
     });

@@ -1,5 +1,6 @@
 export const textureKeys = {
   background: 'background',
+  speaker: 'speaker',
   playerNeutral1: 'player-neutral-1',
   playerNeutral2: 'player-neutral-2',
   playerAimCenter: 'player-aim-center',
@@ -12,6 +13,7 @@ export const textureKeys = {
 
 export const texturePaths = {
   [textureKeys.background]: '/fondo.png',
+  [textureKeys.speaker]: '/speaker.svg',
   [textureKeys.playerNeutral1]: '/n1.png',
   [textureKeys.playerNeutral2]: '/n2.png',
   [textureKeys.playerAimCenter]: '/tc.png',
@@ -24,6 +26,7 @@ export const texturePaths = {
 
 export const criticalTextureKeys = [
   textureKeys.background,
+  textureKeys.speaker,
   textureKeys.playerNeutral1,
   textureKeys.playerNeutral2,
   textureKeys.playerAimCenter,
